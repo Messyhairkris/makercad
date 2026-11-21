@@ -32,6 +32,7 @@ pub const SVGS: &[(&str, &str)] = &[
         "app.workshop",
         include_str!("../assets/icons/app.workshop.svg"),
     ),
+    ("env.build", include_str!("../assets/icons/env.build.svg")),
     ("env.design", include_str!("../assets/icons/env.design.svg")),
     ("env.plan", include_str!("../assets/icons/env.plan.svg")),
     (
@@ -39,6 +40,8 @@ pub const SVGS: &[(&str, &str)] = &[
         include_str!("../assets/icons/env.publish.svg"),
     ),
     ("env.space", include_str!("../assets/icons/env.space.svg")),
+    ("env.stock", include_str!("../assets/icons/env.stock.svg")),
+    ("make.bevel", include_str!("../assets/icons/make.bevel.svg")),
     ("make.box", include_str!("../assets/icons/make.box.svg")),
     ("make.cut", include_str!("../assets/icons/make.cut.svg")),
     (
@@ -49,9 +52,14 @@ pub const SVGS: &[(&str, &str)] = &[
     ("make.join", include_str!("../assets/icons/make.join.svg")),
     ("make.move", include_str!("../assets/icons/make.move.svg")),
     (
+        "make.repeat",
+        include_str!("../assets/icons/make.repeat.svg"),
+    ),
+    (
         "make.revolve",
         include_str!("../assets/icons/make.revolve.svg"),
     ),
+    ("make.round", include_str!("../assets/icons/make.round.svg")),
     ("make.split", include_str!("../assets/icons/make.split.svg")),
     ("sketch.arc", include_str!("../assets/icons/sketch.arc.svg")),
     (
@@ -118,11 +126,14 @@ pub const SVGS: &[(&str, &str)] = &[
     ),
     ("view.fit", include_str!("../assets/icons/view.fit.svg")),
     ("view.front", include_str!("../assets/icons/view.front.svg")),
+    ("view.iso", include_str!("../assets/icons/view.iso.svg")),
     ("view.orbit", include_str!("../assets/icons/view.orbit.svg")),
     ("view.pan", include_str!("../assets/icons/view.pan.svg")),
+    ("view.right", include_str!("../assets/icons/view.right.svg")),
     (
         "view.section",
         include_str!("../assets/icons/view.section.svg"),
     ),
+    ("view.top", include_str!("../assets/icons/view.top.svg")),
     ("view.zoom", include_str!("../assets/icons/view.zoom.svg")),
 ];

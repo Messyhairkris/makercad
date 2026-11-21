@@ -36,13 +36,21 @@ RUN IT
 WHAT TO TRY
   - The opening screen.
   - Examples: opens a sample part (a plate with two holes and a boss) in the Design view,
-    with Sancho, the human-size figure, standing beside it to show how big it is.
+    with Sancho, the human-size figure, standing beside it to show how big it is. A small
+    part sits on a workbench; Sancho stands on the floor.
   - In the Design view: drag to turn the view, right-drag to move it, scroll to zoom,
-    double-click (or "Fit view") to frame the part. "Sancho 1.68 m" hides or shows him.
-    "Home" goes back.
+    double-click to frame the part. The toolbox on the left frames the part (Fit), shows
+    everything (All), and looks from the corner, front, top or right.
+  - Click the part's name (top left) to open SolidCraft's other five examples.
+  - Ctrl+K (or the search box at the top): type what you want to do in your own words,
+    like "put a hole for a screw", "make it thinner" or "dark". CAD words work too
+    (fillet, extrude). Tools that are not built yet say when they come.
+  - Undo and redo (Ctrl+Z, Ctrl+Y) step back through how the example was built.
+  - The tabs (Stock & Cut, Plan, Build, Space, Share, + environment) say what each will do.
+  - mm / in at the bottom right; the Sancho button hides or shows him.
 
 WHAT IS NOT THERE YET
-  You cannot make or change parts, and nothing is saved: no projects or files yet.
+  You cannot draw or make parts yet, and nothing is saved: no projects or files yet.
 
 IF THE WINDOW DOES NOT OPEN OR GOES BLACK
   MakerCAD starts on DirectX 12 and, if a start fails, tries OpenGL the next time.

@@ -1,16 +1,17 @@
 //! `makercad`: starts the desktop app.
 //!
 //! ```text
-//! makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS]]
-//!          [--msaa 1|2|4] [--windowed] [--screenshot PATH] [--look daydream|pastel|night-workshop]
-//!          [--size WxH]
+//! makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS]
+//!          [--tab design|stock|plan|build|space|share]] [--search TEXT] [--msaa 1|2|4]
+//!          [--windowed] [--screenshot PATH] [--look daydream|pastel|night-workshop] [--size WxH]
 //! ```
 //!
 //! `--backend` picks the graphics backend for this start only; `--retest` forgets the backend
 //! that worked last time (see `graphics.rs`); `--demo` shows the design canvas's sample
 //! projects; `--sample` opens SolidCraft's sample plate in the Design workspace (`--fit`: framed
 //! on the plate alone, not the plate and Sancho; `--spin`: turn the view for SECONDS, print the
-//! frame times and close); `--msaa` sets the view's anti-aliasing samples per pixel (by default 1
+//! frame times and close; `--tab`: start on that environment's tab); `--search` opens command
+//! search with TEXT typed; `--msaa` sets the view's anti-aliasing samples per pixel (by default 1
 //! while the view moves, and a still view is drawn once supersampled); `--windowed` does not
 //! maximize. `--screenshot` draws the window,
 //! writes it as a PNG and closes (for agents and reviews: AGENTS.md rule 10); it implies
@@ -21,6 +22,7 @@
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use mk_desktop::environments::Env;
 use mk_desktop::theme::Look;
 use mk_desktop::{graphics, Launch, MakerApp};
 
@@ -31,6 +33,8 @@ struct Args {
     sample: bool,
     fit: bool,
     spin: Option<f64>,
+    tab: Option<Env>,
+    search: Option<String>,
     msaa: Option<u32>,
     windowed: bool,
     screenshot: Option<PathBuf>,
@@ -38,7 +42,8 @@ struct Args {
     size: [f32; 2],
 }
 
-const USAGE: &str = "usage: makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS]] [--msaa 1|2|4] [--windowed] \
+const USAGE: &str = "usage: makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS] \
+                     [--tab design|stock|plan|build|space|share]] [--search TEXT] [--msaa 1|2|4] [--windowed] \
                      [--screenshot PATH] [--look daydream|pastel|night-workshop] [--size WxH]";
 
 fn parse_args() -> Result<Args, String> {
@@ -49,6 +54,8 @@ fn parse_args() -> Result<Args, String> {
         sample: false,
         fit: false,
         spin: None,
+        tab: None,
+        search: None,
         msaa: None,
         windowed: false,
         screenshot: None,
@@ -67,6 +74,11 @@ fn parse_args() -> Result<Args, String> {
             "--demo" => a.demo = true,
             "--sample" => a.sample = true,
             "--fit" => a.fit = true,
+            "--tab" => {
+                let v = value()?;
+                a.tab = Some(Env::from_key(&v).ok_or_else(|| format!("unknown tab {v}; {USAGE}"))?);
+            }
+            "--search" => a.search = Some(value()?),
             "--msaa" => {
                 let v = value()?;
                 a.msaa = Some(match v.as_str() {
@@ -156,6 +168,8 @@ fn main() {
         sample: args.sample,
         fit: args.fit,
         spin: args.spin,
+        search: args.search,
+        tab: args.tab,
     };
     let result = eframe::run_native(
         "MakerCAD",

@@ -26,7 +26,7 @@ use solidcore_record::Vec3;
 use solidcraft_engine::Session;
 use solidcraft_viewport::hatch::HATCH_COLOURS;
 use solidcraft_viewport::vec::Bounds;
-use solidcraft_viewport::{Camera, Rgb, Scene, MAX_SECTION_PLANES, SECTION_CAP};
+use solidcraft_viewport::{Camera, Rgb, Scene, StandardView, MAX_SECTION_PLANES, SECTION_CAP};
 use solidcraft_viewport_gpu::view::{Frame, GpuTarget, Renderer, SceneSlot};
 
 use crate::scale_figure::ScaleFigure;
@@ -61,6 +61,8 @@ struct Built {
 pub struct Design {
     /// Its name, for the top bar.
     pub name: String,
+    /// One line on what it is, for an example ("Parametric plate with fillets, …").
+    pub about: Option<String>,
     session: Session,
     camera: Camera,
     drawing: Drawing,
@@ -129,6 +131,7 @@ impl Design {
         };
         let mut design = Self {
             name: name.into(),
+            about: None,
             session,
             camera,
             drawing: Drawing::Undecided,
@@ -153,11 +156,55 @@ impl Design {
 
     /// SolidCraft's first sample, the plate with fillets, two holes and a bored boss.
     pub fn sample() -> Result<Self, String> {
+        Self::example(0)
+    }
+
+    /// SolidCraft's sample number `index` ([`examples`]), built by its own script.
+    pub fn example(index: usize) -> Result<Self, String> {
         let sample = solidcraft_engine::sample::samples()
             .into_iter()
-            .next()
-            .ok_or("SolidCraft has no samples")?;
-        Self::from_script(sample.name, &(sample.script)())
+            .nth(index)
+            .ok_or_else(|| format!("SolidCraft has no example {}", index + 1))?;
+        let mut design = Self::from_script(sample.name, &(sample.script)())?;
+        design.about = Some(sample.about.to_string());
+        Ok(design)
+    }
+
+    /// Looks at the design from one side (or the corner), framed on the design alone.
+    pub fn look_from(&mut self, side: StandardView) {
+        let Ok(mut camera) = solidcraft_engine::view::home_camera(&self.session) else {
+            return;
+        };
+        camera.set_view(side);
+        if let Some((min, max)) = design_box(&self.session) {
+            let mut b = Bounds::EMPTY;
+            b.add(min);
+            b.add(max);
+            camera.fit(&b);
+        }
+        self.set_camera(camera);
+    }
+
+    /// What Undo would take back ("Bore"), if anything: the engine's own history.
+    pub fn undo_label(&self) -> Option<&str> {
+        step_label(&self.session.undo, self.session.history_part())
+    }
+
+    /// What Redo would put back, if anything.
+    pub fn redo_label(&self) -> Option<&str> {
+        step_label(&self.session.redo, self.session.history_part())
+    }
+
+    /// Takes the last step back (the engine's `edit.undo`).
+    pub fn undo(&mut self) -> Result<(), String> {
+        self.execute("edit.undo", &Value::Object(Default::default()))
+            .map(|_| ())
+    }
+
+    /// Puts the last undone step back (`edit.redo`).
+    pub fn redo(&mut self) -> Result<(), String> {
+        self.execute("edit.redo", &Value::Object(Default::default()))
+            .map(|_| ())
     }
 
     /// Runs one command on the design (the engine's command surface) and redraws.
@@ -204,6 +251,14 @@ impl Design {
         self.sancho
             .as_ref()
             .map(|s| format!("Sancho {:.2} m", s.height_mm / 1000.0))
+    }
+
+    /// Sancho's height in mm while he stands beside the design.
+    pub fn sancho_height_mm(&self) -> Option<f64> {
+        self.sancho
+            .as_ref()
+            .filter(|_| self.show_sancho)
+            .map(|s| s.height_mm)
     }
 
     /// Is Sancho standing beside the design?
@@ -623,4 +678,57 @@ fn design_box(session: &Session) -> Option<(Vec3, Vec3)> {
 
 fn distance(a: Vec3, b: Vec3) -> f64 {
     ((a.x - b.x).powi(2) + (a.y - b.y).powi(2) + (a.z - b.z).powi(2)).sqrt()
+}
+
+/// SolidCraft's examples, in its order: (name, one line on what it is).
+pub fn examples() -> Vec<(&'static str, &'static str)> {
+    solidcraft_engine::sample::samples()
+        .into_iter()
+        .map(|s| (s.name, s.about))
+        .collect()
+}
+
+/// The label of the latest step of `part` (`None`: the model) in an undo or redo list, the way
+/// `edit.undo` picks the step it takes back.
+fn step_label(steps: &[solidcraft_engine::Snapshot], part: Option<u64>) -> Option<&str> {
+    steps
+        .iter()
+        .rev()
+        .find(|s| s.part == part)
+        .map(|s| s.label.as_str())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn undo_and_redo_name_the_engines_own_steps() {
+        let mut d = Design::sample().expect("the sample builds");
+        let last = d
+            .undo_label()
+            .map(str::to_string)
+            .expect("the sample's steps are in its history");
+        assert_eq!(d.redo_label(), None);
+        d.undo().expect("undo");
+        assert_eq!(
+            d.redo_label(),
+            Some(last.as_str()),
+            "redo puts back what undo took"
+        );
+        d.redo().expect("redo");
+        assert_eq!(d.undo_label(), Some(last.as_str()));
+        assert_eq!(d.redo_label(), None);
+    }
+
+    #[test]
+    fn every_example_in_the_project_menu_builds() {
+        let all = examples();
+        assert_eq!(all.len(), 6, "SolidCraft's six samples: {all:?}");
+        for (i, (name, _)) in all.iter().enumerate() {
+            let d = Design::example(i).unwrap_or_else(|e| panic!("{name}: {e}"));
+            assert_eq!(d.name, *name);
+            assert!(d.about.is_some(), "{name} says what it is");
+        }
+    }
 }

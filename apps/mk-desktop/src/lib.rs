@@ -1,26 +1,37 @@
 //! MakerCAD's desktop shell: our own egui shell (decision D23) around SolidCraft's kernel and
 //! viewport. The opening screen, and the Design workspace (SolidCraft's engine inside our shell,
-//! P1); the Quest, the project file and the cut list follow.
+//! P1) with its project bar, environment tabs, toolbox, status bar and command search
+//! (`shell.rs`); the Quest, the project file and the cut list follow.
+//!
+//! Every button, menu, search result and shortcut becomes an [`Act`], carried out in one place
+//! ([`MakerApp::run`]).
 
+pub mod commands;
 pub mod design;
+pub mod environments;
 pub mod graphics;
 pub mod home;
 mod icon_data;
 pub mod icons;
 pub mod sancho;
 pub mod scale_figure;
+pub mod shell;
 pub mod stage;
 pub mod theme;
 
 use std::time::{Duration, Instant};
 
-use egui::{vec2, Align2, CornerRadius, Frame, Margin, RichText, Stroke};
+use egui::{vec2, Align2, CornerRadius, Frame, Key, Margin, Modifiers, RichText, Stroke};
 
+use commands::{Act, Command, Units};
+use environments::Env;
 use home::{ChipKind, HomeAction, HomeIcons, HomeModel, Recent};
 use theme::Look;
 
 /// The settings key the look is stored under. Never change it (compatibility rule C3).
 const LOOK_KEY: &str = "look";
+/// The settings key the units are stored under. Never change it (C3).
+const UNITS_KEY: &str = "units";
 
 /// How the shell was started.
 #[derive(Clone, Debug)]
@@ -44,6 +55,10 @@ pub struct Launch {
     /// With `sample`: turn the view for this many seconds, print the frame times and close
     /// (`--spin`, for measuring).
     pub spin: Option<f64>,
+    /// Open command search at start with this typed (`--search`, for screenshots and checks).
+    pub search: Option<String>,
+    /// With `sample`: start on this environment's tab (`--tab`).
+    pub tab: Option<Env>,
 }
 
 /// What `--spin` measured: the time of each frame (egui's input time), once the view has settled.
@@ -111,6 +126,16 @@ pub struct MakerApp {
     screen: Screen,
     design: Option<design::Design>,
     spin: Spin,
+    /// The environment tab in front.
+    env: Env,
+    /// Lengths in millimetres or inches.
+    units: Units,
+    /// Command search (Ctrl+K).
+    search: shell::Search,
+    /// SolidCraft's examples (name, one line).
+    examples: Vec<(&'static str, &'static str)>,
+    /// Every command, for search.
+    commands: Vec<Command>,
 }
 
 /// Frames drawn before `--screenshot` takes its picture, so layout and icons have settled.
@@ -129,6 +154,13 @@ impl MakerApp {
             let info = rs.adapter.get_info();
             format!("{} \u{b7} {:?}", info.name, info.backend)
         });
+        let units = cc
+            .storage
+            .and_then(|s| s.get_string(UNITS_KEY))
+            .and_then(|k| Units::from_key(&k))
+            .unwrap_or(Units::Mm);
+        let examples = design::examples();
+        let commands = commands::all(&examples);
         let mut app = Self {
             look,
             applied: None,
@@ -150,30 +182,100 @@ impl MakerApp {
             screen: Screen::Home,
             design: None,
             spin: Spin::default(),
+            env: Env::Design,
+            units,
+            search: shell::Search::default(),
+            examples,
+            commands,
             launch,
         };
         if app.launch.demo {
             app.load_demo();
         }
         if app.launch.sample {
-            app.open_sample(0.0);
+            app.open_example(0, 0.0);
             if app.launch.fit {
                 if let Some(design) = app.design.as_mut() {
                     design.fit_view();
                 }
             }
+            if let Some(tab) = app.launch.tab {
+                app.env = tab;
+            }
+        }
+        if let Some(text) = app.launch.search.clone() {
+            app.search.open_with(&text);
         }
         app
     }
 
-    /// Opens SolidCraft's sample plate in the Design workspace.
-    fn open_sample(&mut self, now: f64) {
-        match design::Design::sample() {
+    /// Opens SolidCraft's example number `index` in the Design workspace.
+    fn open_example(&mut self, index: usize, now: f64) {
+        let name = self.examples.get(index).map_or("the example", |e| e.0);
+        match design::Design::example(index) {
             Ok(d) => {
                 self.design = Some(d);
                 self.screen = Screen::Design;
+                self.env = Env::Design;
             }
-            Err(e) => self.notice = Some((format!("The sample did not build: {e}"), now + 8.0)),
+            Err(e) => self.notice = Some((format!("{name} did not build: {e}"), now + 8.0)),
+        }
+    }
+
+    /// Carries out what the person asked for: a button, a menu, a search result or a shortcut.
+    fn run(&mut self, act: Act, now: f64) {
+        let mut say = |text: String, seconds: f64| self.notice = Some((text, now + seconds));
+        match act {
+            Act::Home => self.screen = Screen::Home,
+            Act::OpenExample(i) => self.open_example(i, now),
+            // Ctrl+K again closes it.
+            Act::Search if self.search.open => self.search.open = false,
+            Act::Search => self.search.open(),
+            Act::Settings => self.settings_open = true,
+            Act::About => self.help_open = true,
+            Act::SetLook(look) => self.look = look,
+            Act::SetUnits(units) => self.units = units,
+            Act::Later(l) if l.phase == "now" => say(format!("{}: {}", l.what, l.note), 6.0),
+            Act::Later(l) => say(format!("{} comes in {}. {}", l.what, l.phase, l.note), 7.0),
+            Act::Tab(env) => {
+                if self.design.is_some() {
+                    self.env = env;
+                    self.screen = Screen::Design;
+                } else {
+                    say(
+                        "The environments are tabs of a project: open one first (Examples).".into(),
+                        6.0,
+                    );
+                }
+            }
+            Act::FitView | Act::WholeView | Act::LookFrom(_) | Act::Sancho => {
+                if let Some(d) = self.design.as_mut() {
+                    match act {
+                        Act::FitView => d.fit_view(),
+                        Act::WholeView => d.home_view(),
+                        Act::LookFrom(side) => d.look_from(side),
+                        _ => d.show_sancho(!d.sancho_shown()),
+                    }
+                    self.env = Env::Design;
+                }
+            }
+            Act::Undo | Act::Redo => {
+                if let Some(d) = self.design.as_mut() {
+                    let (label, result, done) = if act == Act::Undo {
+                        (d.undo_label().map(str::to_string), d.undo(), "Undone")
+                    } else {
+                        (d.redo_label().map(str::to_string), d.redo(), "Redone")
+                    };
+                    self.env = Env::Design;
+                    match (result, label) {
+                        (Ok(()), Some(label)) => {
+                            self.notice = Some((format!("{done}: {label}"), now + 3.0))
+                        }
+                        (Ok(()), None) => {}
+                        (Err(e), _) => self.notice = Some((e, now + 5.0)),
+                    }
+                }
+            }
         }
     }
 
@@ -288,7 +390,7 @@ impl MakerApp {
             }
             HomeAction::ImportProject => say("Import comes with the project file (P1)."),
             HomeAction::Examples => {
-                self.open_sample(now);
+                self.open_example(0, now);
                 None
             }
         };
@@ -310,6 +412,15 @@ impl MakerApp {
                             .clicked()
                         {
                             self.look = look;
+                        }
+                    }
+                });
+                ui.add_space(8.0);
+                ui.label(RichText::new("Sizes in").strong());
+                ui.horizontal(|ui| {
+                    for (units, name) in [(Units::Mm, "millimetres"), (Units::In, "inches")] {
+                        if ui.selectable_label(self.units == units, name).clicked() {
+                            self.units = units;
                         }
                     }
                 });
@@ -353,59 +464,74 @@ impl MakerApp {
 }
 
 impl MakerApp {
-    /// The Design workspace: a top bar, and SolidCraft's model view filling the rest.
-    fn design_screen(&mut self, ui: &mut egui::Ui, palette: &theme::Palette) {
-        let mut go_home = false;
-        let mut fit_view = false;
-        let name = self
-            .design
-            .as_ref()
-            .map(|d| d.name.clone())
-            .unwrap_or_default();
-        let sancho_label = self.design.as_ref().and_then(|d| d.sancho_label());
-        let mut show_sancho = self.design.as_ref().is_some_and(|d| d.sancho_shown());
-        egui::Panel::top("design-bar")
-            .frame(Frame::new().fill(palette.bg2).inner_margin(Margin::symmetric(16, 8)).stroke(Stroke::new(1.0, palette.line)))
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    // Plain text: the window's font has no arrow glyph (it drew a box).
-                    if ui.button("Home").clicked() {
-                        go_home = true;
-                    }
-                    ui.add_space(12.0);
-                    ui.label(RichText::new(name).size(17.0).strong().color(palette.ink));
-                    ui.add_space(12.0);
-                    ui.label(RichText::new("Design").size(14.0).color(palette.muted));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("Fit view").on_hover_text("Frame the design").clicked() {
-                            fit_view = true;
-                        }
-                        if let Some(label) = &sancho_label {
-                            ui.toggle_value(&mut show_sancho, label.as_str())
-                                .on_hover_text("Sancho stands beside the design at true size, so you can see how big it is");
-                        }
-                        ui.label(
-                            RichText::new("drag: turn \u{b7} right-drag: move \u{b7} scroll: zoom \u{b7} double-click: fit")
-                                .size(12.0)
-                                .color(palette.muted),
-                        );
-                    });
-                });
-            });
-        let render_state = self.render_state.clone();
-        if let Some(design) = self.design.as_mut() {
-            design.show_sancho(show_sancho);
-            if fit_view {
-                design.fit_view();
-            }
-            egui::CentralPanel::default()
-                .frame(Frame::NONE)
+    /// The Design workspace (doc 11 §11.4): the project bar and environment tabs along the top,
+    /// the toolbox down the left, and SolidCraft's model view filling the rest. A tab whose
+    /// environment comes later shows what it will do instead of the view.
+    fn design_screen(&mut self, ui: &mut egui::Ui, now: f64) {
+        let p = self.look.palette();
+        let env = self.env;
+        let mut acts: Vec<Act> = Vec::new();
+        {
+            let design = self.design.as_ref();
+            let model = shell::BarModel {
+                name: design.map_or("", |d| d.name.as_str()),
+                about: design.and_then(|d| d.about.as_deref()),
+                undo: design.and_then(|d| d.undo_label()),
+                redo: design.and_then(|d| d.redo_label()),
+                sancho: design.and_then(|d| d.sancho_label().map(|l| (d.sancho_shown(), l))),
+                examples: &self.examples,
+            };
+            let mut kit = shell::Kit::new(self.look, &mut self.icons);
+            let bar = |fill| {
+                Frame::new()
+                    .fill(fill)
+                    .inner_margin(Margin::symmetric(12, 0))
+                    .stroke(Stroke::new(1.0, p.line))
+            };
+            egui::Panel::top("project-bar")
+                .exact_size(shell::BAR_H)
+                .frame(bar(p.panel))
                 .show(ui, |ui| {
-                    design.show(ui, render_state.as_ref(), palette);
+                    acts.extend(shell::project_bar(ui, &mut kit, &model))
                 });
+            egui::Panel::top("env-tabs")
+                .exact_size(shell::TABS_H)
+                .frame(bar(p.bg2))
+                .show(ui, |ui| acts.extend(shell::env_tabs(ui, &mut kit, env)));
+            if env == Env::Design {
+                egui::Panel::left("toolbox")
+                    .exact_size(shell::TOOL_W)
+                    .resizable(false)
+                    .frame(Frame::new().fill(p.panel).stroke(Stroke::new(1.0, p.line)))
+                    .show(ui, |ui| acts.extend(shell::toolbox(ui, &mut kit)));
+            }
         }
-        if go_home {
-            self.screen = Screen::Home;
+        let render_state = self.render_state.clone();
+        egui::CentralPanel::default()
+            .frame(Frame::NONE)
+            .show(ui, |ui| {
+                if env == Env::Design {
+                    let rect = ui.max_rect();
+                    if let Some(design) = self.design.as_mut() {
+                        design.show(ui, render_state.as_ref(), &p);
+                    }
+                    ui.painter().text(
+                        rect.left_bottom() + vec2(12.0, -10.0),
+                        Align2::LEFT_BOTTOM,
+                        "drag: turn \u{b7} right-drag: move \u{b7} scroll: zoom \u{b7} double-click: fit",
+                        egui::FontId::proportional(12.0),
+                        p.muted,
+                    );
+                } else {
+                    egui::Frame::new().fill(p.bg2).show(ui, |ui| {
+                        ui.set_min_size(ui.available_size());
+                        let mut kit = shell::Kit::new(self.look, &mut self.icons);
+                        acts.extend(shell::env_page(ui, &mut kit, env));
+                    });
+                }
+            });
+        for act in acts {
+            self.run(act, now);
         }
     }
 
@@ -515,34 +641,107 @@ impl eframe::App for MakerApp {
             ctx.request_repaint();
         }
 
-        let palette = self.look.palette();
-        egui::Panel::bottom("status")
-            .frame(
-                Frame::new()
-                    .fill(palette.bg2)
-                    .inner_margin(Margin::symmetric(16, 6))
-                    .stroke(Stroke::new(1.0, palette.line)),
-            )
-            .show(ui, |ui| {
-                ui.label(
-                    RichText::new(self.status_line())
-                        .size(12.0)
-                        .color(palette.muted),
-                );
-            });
+        // Shortcuts: Ctrl+K anywhere; undo and redo when no text field has the keyboard.
+        let mut acts: Vec<Act> = Vec::new();
+        let typing = ctx.egui_wants_keyboard_input();
+        ctx.input_mut(|i| {
+            if i.consume_key(Modifiers::COMMAND, Key::K) {
+                acts.push(Act::Search);
+            }
+            if !typing && !self.search.open && self.screen == Screen::Design {
+                if i.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z)
+                    || i.consume_key(Modifiers::COMMAND, Key::Y)
+                {
+                    acts.push(Act::Redo);
+                } else if i.consume_key(Modifiers::COMMAND, Key::Z) {
+                    acts.push(Act::Undo);
+                }
+            }
+        });
+        for act in acts.drain(..) {
+            self.run(act, now);
+        }
 
-        if self.screen == Screen::Design && self.design.is_some() {
-            self.design_screen(ui, &palette);
-            self.windows(&ctx);
-            self.show_notice(&ctx, now);
+        let palette = self.look.palette();
+        let design_open = self.screen == Screen::Design && self.design.is_some();
+        let details = self.status_line();
+        let backend = self
+            .launch
+            .graphics
+            .as_ref()
+            .map_or_else(|| "no window".to_string(), |c| c.backend.clone());
+        let sancho_mm = self
+            .design
+            .as_ref()
+            .filter(|_| design_open)
+            .and_then(design::Design::sancho_height_mm);
+        {
+            let status = shell::StatusModel {
+                units: self.units,
+                sancho_mm,
+                backend: &backend,
+                details: &details,
+                design: design_open,
+            };
+            let mut kit = shell::Kit::new(self.look, &mut self.icons);
+            egui::Panel::bottom("status")
+                .frame(
+                    Frame::new()
+                        .fill(palette.bg2)
+                        .inner_margin(Margin::symmetric(16, 4))
+                        .stroke(Stroke::new(1.0, palette.line)),
+                )
+                .show(ui, |ui| {
+                    acts.extend(shell::status_bar(ui, &mut kit, &status))
+                });
+        }
+        for act in acts.drain(..) {
+            self.run(act, now);
+        }
+
+        if design_open {
+            self.design_screen(ui, now);
+        } else {
+            self.home_screen(ui, &ctx, now);
+        }
+        self.windows(&ctx);
+        let mut kit = shell::Kit::new(self.look, &mut self.icons);
+        let found = shell::search_window(
+            &ctx,
+            &mut kit,
+            &mut self.search,
+            &self.commands,
+            design_open,
+        );
+        if let Some(act) = found {
+            self.run(act, now);
+        }
+        self.show_notice(&ctx, now);
+    }
+
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        // A screenshot run leaves the settings alone; so does a `--look` start the person didn't
+        // change (2026-11-19: a Night Workshop screenshot turned the next start dark).
+        if self.launch.screenshot.is_some() {
             return;
         }
+        storage.set_string(UNITS_KEY, self.units.key().to_string());
+        if self.launch.look != Some(self.look) {
+            storage.set_string(LOOK_KEY, self.look.key().to_string());
+        }
+    }
+}
+
+impl MakerApp {
+    /// The opening screen.
+    fn home_screen(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, now: f64) {
+        let palette = self.look.palette();
 
         let ppp = ctx.pixels_per_point();
         let mut home_icons = HomeIcons::default();
         for (id, points) in HomeIcons::WANTED {
             let px = (points * ppp).round().clamp(1.0, 512.0) as u32;
-            let texture = self.icons.get(&ctx, id, self.look, px);
+            let texture = self.icons.get(ctx, id, self.look, px);
             match id {
                 "app.settings" => home_icons.settings = texture,
                 "app.help" => home_icons.help = texture,
@@ -572,18 +771,6 @@ impl eframe::App for MakerApp {
         if let Some(action) = action {
             self.act(action, now);
         }
-
-        self.windows(&ctx);
-        self.show_notice(&ctx, now);
-    }
-
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        // A screenshot run, or a `--look` start the person didn't change, leaves the saved look
-        // alone (2026-11-19: a Night Workshop screenshot turned the next start dark).
-        if self.launch.screenshot.is_some() || self.launch.look == Some(self.look) {
-            return;
-        }
-        storage.set_string(LOOK_KEY, self.look.key().to_string());
     }
 }
 
