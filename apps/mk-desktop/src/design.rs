@@ -86,7 +86,13 @@ pub struct Design {
     show_sancho: bool,
     /// [`Design::turn`] moved the camera since the last frame.
     turning: bool,
+    /// When the camera last moved: the view is drawn plainly until it has been still for
+    /// [`STILL_AFTER`], then once supersampled ([`still_ssaa`]).
+    last_move: Option<Instant>,
 }
+
+/// How long the view must stay still before it is drawn with smooth edges.
+const STILL_AFTER: std::time::Duration = std::time::Duration::from_millis(250);
 
 impl Design {
     /// A design built by running `script` (`{"commands": [{"command", "params"}, ...]}`), the way
@@ -139,6 +145,7 @@ impl Design {
             sancho,
             show_sancho: true,
             turning: false,
+            last_move: None,
         };
         design.home_view();
         Ok(design)
@@ -266,9 +273,16 @@ impl Design {
         }
         if moving {
             self.picture_dirty = true;
+            self.last_move = Some(Instant::now());
         }
         if response.double_clicked() {
             self.fit_view();
+        }
+        // Plain frames while the view moves, then one smooth frame once it has settled (the
+        // renderer keeps that picture, so a still view costs nothing more).
+        let settling = self.last_move.is_some_and(|t| t.elapsed() < STILL_AFTER);
+        if settling {
+            ui.ctx().request_repaint_after(STILL_AFTER);
         }
 
         let ppp = ui.ctx().pixels_per_point();
@@ -310,7 +324,7 @@ impl Design {
                     self.rebuild();
                 }
                 if let Some(built) = &self.built {
-                    let frame = self.frame(built, px);
+                    let frame = self.frame(built, px, !settling);
                     painter.add(egui_wgpu::Callback::new_paint_callback(
                         rect,
                         solidcraft_viewport_egui::ViewportCallback(frame),
@@ -420,7 +434,7 @@ impl Design {
     }
 
     /// This frame of the view: the current camera over the scene as built.
-    fn frame(&self, built: &Built, [w, h]: [u32; 2]) -> Frame {
+    fn frame(&self, built: &Built, [w, h]: [u32; 2], still: bool) -> Frame {
         let empty = || Arc::new(Mutex::new(None));
         let cam = &self.camera;
         let m = cam.view_proj(
@@ -463,7 +477,7 @@ impl Design {
             ],
             ao_radius: 0.0,
             ao_samples: solidcraft_viewport_gpu::view::AO_SAMPLES,
-            ssaa: 1.0,
+            ssaa: if still { still_ssaa() } else { 1.0 },
             hover_tint: [0.0; 3],
             selection_tint: [0.0; 3],
             hatch: built.hatch,
@@ -508,9 +522,32 @@ impl Design {
     }
 }
 
+/// Samples per pixel the view is drawn with (MSAA): 1 unless `--msaa` said otherwise.
+static MSAA: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+
+/// Sets the view's samples per pixel (1, 2 or 4) for this run, before the first design opens
+/// (`--msaa`). P0 condition 2, measured 2026-11-21 on the reference PC with the plate filling a
+/// 1920 × 1017 window while turning: 4 samples 21 FPS, 2 samples 35 FPS, 1 sample 57 FPS (the
+/// screen's 60 Hz). So the default is 1 sample while the view moves and a supersampled frame
+/// once it is still ([`still_ssaa`]).
+pub fn set_msaa(samples: u32) {
+    let _ = MSAA.set(samples);
+}
+
+/// How much a still view is supersampled (each side): 2 with the default single sample, which
+/// gives smooth edges once, when the view stops; 1 (none) when `--msaa` asked for more samples.
+fn still_ssaa() -> f32 {
+    if MSAA.get().copied().unwrap_or(1) > 1 {
+        1.0
+    } else {
+        2.0
+    }
+}
+
 /// SolidCraft's viewport pipelines in the window's renderer: installed once per window (a later
-/// design reuses them). The scene is drawn offscreen with depth and 4× MSAA where the device has
-/// it, then into the window's pass, which has one sample and no depth.
+/// design reuses them). The scene is drawn offscreen with depth and MSAA ([`set_msaa`], 1 sample
+/// by default) where the device has it, then into the window's pass, which has one sample and no
+/// depth.
 fn install_viewport(rs: &egui_wgpu::RenderState) {
     if rs
         .renderer
@@ -524,12 +561,15 @@ fn install_viewport(rs: &egui_wgpu::RenderState) {
     let depth = solidcraft_viewport_gpu::depth_format(&rs.device, true);
     let flags = |f| rs.adapter.get_texture_format_features(f).flags;
     let format = rs.target_format;
-    let samples =
-        if flags(format).sample_count_supported(4) && flags(depth).sample_count_supported(4) {
-            4
-        } else {
-            1
-        };
+    let wanted = MSAA.get().copied().unwrap_or(1);
+    let samples = if wanted > 1
+        && flags(format).sample_count_supported(wanted)
+        && flags(depth).sample_count_supported(wanted)
+    {
+        wanted
+    } else {
+        1
+    };
     let scene = GpuTarget {
         format,
         depth: Some(depth),
