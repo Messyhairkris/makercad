@@ -1,0 +1,20 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-11-19T22:35:00Z"},
+  "title": "MakerCAD First UI Design",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 900, "title": "1 · Opening screen", "expand": "fill", "is_interactive": true},
+    "Quest.dc.html": {"x": 1520, "y": 0, "w": 1440, "h": 900, "title": "2 · New project questions", "expand": "fill"},
+    "Workspace.dc.html": {"x": 0, "y": 1020, "w": 1440, "h": 900, "title": "3 · Workspace: Alcove dresser", "expand": "fill", "is_interactive": true},
+    "StockCut.dc.html": {"x": 1520, "y": 1020, "w": 1440, "h": 900, "title": "4 · Stock & Cut: 15 boards", "expand": "fill"},
+    "Icons.dc.html": {"x": 0, "y": 2040, "w": 1440, "h": 1000, "title": "5 · Icons, colours and type"}
+  },
+  "order": ["Main.dc.html", "Quest.dc.html", "Workspace.dc.html", "StockCut.dc.html", "Icons.dc.html"],
+  "notes": {
+    "title": {"x": 0, "y": -300, "text": "MakerCAD — Storybook Workshop, first pass", "kind": "title1", "maxW": 2960},
+    "brief": {"x": 3040, "y": 0, "w": 420, "text": "First UI pass for Kris, Mookie and Buddy, before the FigCraft layout arrives.\n\nLook: doc 11 (Daydream theme, Pastel option via the Theme tweak on boards 1 and 3).\nLayout: doc 11 §11.4 — project bar, environment tabs instead of a ribbon, a short project-specific toolbox, context panel, maker-worded timeline, status bar with the material meter.\nIcons: drawn to the rules in doc 18 (64-unit grid, ink outline, pastel fill, one accent at most).\n\nComment anywhere: what feels right, what doesn't.", "size": "m"}
+  },
+  "designSystems": []
+}

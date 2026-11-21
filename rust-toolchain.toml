@@ -1,0 +1,8 @@
+# The same Rust as SolidCraft at the pinned rev (third_party/solidcraft/rust-toolchain.toml).
+# A different rustc makes every compiled crate stale, and the shared target directory then
+# rebuilds SolidCraft's kernel (about 2 hours on the reference machine). Move it with the pin.
+[toolchain]
+channel = "1.99.1"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

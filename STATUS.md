@@ -1,0 +1,165 @@
+# MakerCAD — status
+
+Live status. A row needs the claim, the exact command and the result. Speed and memory claims
+are measured on the reference machine (i5-6600, Intel HD 530, 8 GB, Windows 10), which is the
+machine this repo is developed on.
+
+## 2026-11-19 — P0: foundation
+
+| Claim | Command | Result |
+|---|---|---|
+| SolidCraft is pinned | `git -C third_party/solidcraft rev-parse HEAD` | `906b5e86488757dbd88a369573cb6599a335628e` (main, 2026-11-19 20:44 UTC), shallow checkout 0.91 GB |
+| SolidCraft's UI shell depends on its brand-licensed crates | read `crates/*/Cargo.toml` | `ui-egui` → `ui-kit`, `look`, `theme`; app `solidcraft` → `look`, `theme`. So MakerCAD needs its own shell (D23) |
+| The WIT `craft:plugin` world, read for Craft Modules | [docs/p0-plugin-world.md](docs/p0-plugin-world.md) | `craft:plugin@0.2.0`: worlds `command-plugin` and `importer-plugin`; host crates are app-independent MIT/Apache (D19 holds). The host uses wasmtime 48 with `cranelift` only, so iOS needs an interpreter (pulley or wasmi): not measured yet |
+| Written brand-crate dependency map (P0 exit item) | [docs/p0-brand-map.md](docs/p0-brand-map.md) | 5 crates link brand material (`ui-kit`, `look`, `ui-egui`, the app, `solidcraft-web`); everything else is clean. Inside `ui-egui`, `solidcraft_theme` is used 699 times in 200 of 467 files (`Tokens` 428), so de-branding a fork of it is not worth it: D23 stands |
+| Non-brand crates usable as-is | same | `viewport-egui`, `control-egui`, `panel-layout`, `ui-registry`, `engine`, `doc`, `kernel`, `sketch`, `io`, `mcp`, `craft-plugin*` depend on none of the three |
+| Stock SolidCraft builds on the reference machine | `tools/p0_build.ps1` (log: `target/p0/build.log`) | **Not in reasonable time, as configured.** 460 of ~514 crates built by 21:14. The last ones all wait for **solidcore**, the B-rep kernel: one crate of 41 MB of Rust in 794 files. Its rustc started 15:42; at 21:50 it had 4.25 GB committed but 1.2 GB resident, its main thread waiting on PageIn, and 2.6 CPU-minutes used in 6 hours (`Get-Process -Id <rustc>`; thread WaitReason). The disk is a spinning laptop drive (TOSHIBA MK3261GSYN), so the paging dominates. Stopped at 23:31 with Kris's OK (`build.done`: exit -1 after 473.9 min) |
+| Retry: low-memory mode | `tools/p0_build.ps1 -LowMemory` (`-j 1`, solidcore at opt-level 1), progress every 5 min in `target/p0/watch.log` (`tools/p0_watch.ps1`) | **started 23:32**; free memory at start 2.2 GB (was 1 GB). solidcore started 23:37; by 23:42 it had 3.5 GB committed and 1.2 CPU-minutes, then it filled RAM and slowed to about 0.3 CPU-minutes per 5 minutes (23:47: 4.0 GB committed, 2.7 GB resident). That is about 15× the first attempt's rate. Opt-level does not change this phase: the memory goes to the compiler's front end on 41 MB of source. Nothing else on the PC was both safe and worth closing: the big committed users (opencode, the Crew's PA engine; WSL) were already paged out. **00:20 it got past the worst of it**: 2.6 → 12.0 CPU-minutes by 00:51 (about 0.35 CPU-minutes per minute), commit peaked at 5.7 GB. **00:52 it reached code generation**: object files `solidcore-*-cgu.NN.rcgu.o` appear in `target/debug/deps` (cgu.06 15 MB, cgu.03 17 MB, cgu.11 7 MB by 00:56), about one a minute. **01:16 solidcore finished**: `libsolidcore-7aadb382d6a16858.rlib`, 306 MB, after 1 h 44 min and 27.8 CPU-minutes; then `solidcore-convert` started. 01:16–02:13: 16 more crates (`kernel`, `sketch`, `doc`, `render`, `io`, `viewport-*`…; 476 in all). **02:13 `solidcraft-engine` started: 20.5 MB of source, the second big one.** It filled RAM again (02:28: 4.9 GB committed, 1.3 GB resident, 1.7 CPU-minutes), the same pattern solidcore showed before it broke through. Still to go after it: `solidcraft-ui-egui` (20.8 MB), a few small crates, the app (0.6 MB) and the link. Estimate, by solidcore's rate: done between about 05:00 and 07:00. **About 03:22 the engine finished** (about 70 min; commit peaked at 6.6 GB, 17.9 CPU-minutes). `look` and `gpu` followed; **about 03:28 `solidcraft-ui-egui` started**, the last big crate. **04:37 finished: exit 0 after 304 min** (`build.done`); `solidcraft.exe` (debug, opt-level 1 for SolidCraft's own crates) is 365 MB |
+| Stock SolidCraft starts, and on which graphics backend | `python tools/p0_measure.py` (no backend set), log `target/p0/solidcraft-default-1st.log` | **First start crashed**: SolidCraft's Windows order is Vulkan first, and it died with 0xC0000005 right after `starting Backends(VULKAN)`. **Second start recovered on its own**: its crash guard logged `skipping Backends(VULKAN) (crashed)` and it started on DX12 (Intel HD Graphics 530) in 22.4 s. So a new user on this PC sees one crash first. MakerCAD's own shell tries DX12 first and never touches Vulkan here |
+| DX12 forced | `python tools/p0_measure.py --backend dx12 --spin 8`; `spin_probe.py dx12` | 2 of 2 starts worked; start 30–33 s (debug build, spinning disk). **Orbit: 30 FPS, 32.9 ms per frame** (SolidCraft's own frame-rate readout while the view spins; `target/p0/spin-probe-dx12.png`): 64% of frames ≤ 34 ms, 25% 34–50 ms, 7% slower. The frame is serial: UI 10.1 ms + scene build 7.8 ms + GPU 13.9 ms (nearly all of it the supersampling pass, MSAA 4×). **Idle memory: 795 MB working set, 715 MB private** |
+| OpenGL forced | `python tools/p0_measure.py --backend gl`; `spin_probe.py gl` | **1 of 3 starts panicked** inside wgpu's GL backend: `Could not lock adapter context. This is most-likely a deadlock.` (wgpu-hal 30.0.1 `gles/queue.rs:1910`; crash report under `%LOCALAPPDATA%\SolidCraft\crashes`). The other 2 started in 16–18 s. **Orbit: 51 FPS, 19.5 ms per frame**: 62% ≤ 17 ms, 32% 17–34 ms, 6% 34–50 ms; GPU 3.9 ms, but GL got MSAA 1× (4× asked). **Idle memory: 332 MB working set, 204 MB private** |
+| What the orbit numbers mean | `crates/ui-egui/src/control.rs:1034`, `frame_rate.rs` (pinned SolidCraft) | `ui.inspect`'s `frame_ms` is the UI's own time per frame ("UI time"), **not** frame to frame: it read 5–8 ms (that would be "128–183 fps") while the real rate was 30–51 FPS. Only the frame-rate readout has the real rate, so `p0_measure.py --spin` turns it on, spins the view and captures it, then turns both off again |
+| SolidCraft's headless CLI builds without rebuilding the kernel | `pwsh tools/p0_cli.ps1` (log `target/p0/cli-build.log`) | exit 0 in 15.7 min: only `solidcraft-cli`, `solidcraft-mcp`, `solidcraft-mcp-server` compiled. Building the app and the CLI together keeps every shared crate's features the same (checked with `cargo tree -e features`); the CLI on its own would have rebuilt 27 crates |
+| **solidcore rebuilds SolidCraft's reference parts on this PC** (P0 NO-GO trigger) | `python tools/p0_oracle.py` (results `target/p0/oracle.json`, log `target/p0/oracle.log`) | **88 of 90 pass; the other 2 are upstream's own known failures**, marked `known_failure` in their `expected.json`: `80-fillet-taper-to-fit` (area 2412.49 mm² against 2415.15, 0.11% off, tolerance 0.1%) and `83-boundary-loop-thicken` (SMLib thicken: the offset "is neither proved regular nor proved to fold"). SolidCraft's own grading (`cargo xtask oracle`) counts that as a pass: no unexpected failure, no known failure now passing. The corpus is 90 cases now (doc 14 says 76); its `docs/oracle.md` "90 / 90" predates the two marks |
+| How long each reference part takes (debug build) | same | 305 s for all 90; median 1.0 s; 44 under 1 s, 82 under 5 s, p95 9.5 s. Each time covers replaying the recipe, measuring, a STEP export and read-back, and the surface comparison, not the rebuild alone. **Slow: the hard fillets and offsets**: `77-fillet-variable-linear` 45.7 s, `81-fillet-spline-radius` 42.7 s, `35-fillet-curved-curved` 28.6 s, `83` 46.6 s (fails), `41-tube-radial-holes` 14.2 s. Against doc 12's "commit-to-exact p95 < 400 ms" these need a rebuild-only timing on an optimised build before anyone promises interactive variable fillets on the potato |
+| The part | the sample SolidCraft opens with `--sample` | "Sample Plate": 1 body, 1,810 triangles, 9,644 line segments, 7 draw calls. Much lighter than doc 12's orbit target (dresser + room shell) |
+| The Crew keeper (cron) is installed | `schtasks /Query /TN "The Crew keeper"` | Ready, every 15 minutes |
+| Keeper and carry-over logic | `python -m pytest tests/test_keeper.py` (ATLAS-api-harness) | 21 passed |
+| Crew suite still green after the carry-over change | `python -m pytest tests/test_crew.py tests/test_close_campaign.py tests/test_schedule.py tests/test_keeper.py` | 234 passed; 2 failures predate the change (Claude SDK not installed; MCP tool list) |
+
+**P0 graphics verdict (2026-11-20, about 05:00): GO, with conditions.** Doc 14's exit bar ("≥ 30 fps orbit on a
+reference part with a forced backend") is met on both forced backends, just barely on DX12 (30.4 FPS mean),
+comfortably on GL (51), and in a debug build. Doc 12's stricter target (p95 frame < 33 ms on a dresser and
+room) is **not** met yet: about a third of DX12 frames take longer than 34 ms. Conditions:
+1. MakerCAD keeps its DX12 → GL order on Windows (`apps/mk-desktop/src/graphics.rs`). SolidCraft's Vulkan-first
+   order crashes here.
+2. DX12's GPU time is the supersampling pass. The potato profile needs a cheaper anti-aliasing setting.
+3. GL is fast but crashed once in 3 starts, so it stays the fallback, not the default, until that is understood.
+4. Re-measure with an optimised build before calling the frame rate settled. A release build of SolidCraft
+   (`opt-level 3`, `lto = "thin"`) is not practical on this PC's 8 GB: the debug build already took 5 h.
+
+**P0 overall (2026-11-20, about 05:45): GO, for Kris to confirm.** All three exit items are now in this
+table: the frame-rate bar on a forced backend, the brand-crate map, and this note. Neither NO-GO trigger
+fired: SolidCraft runs here with no patches at all (only a forced or remembered backend), and solidcore
+rebuilds 88 of its 90 reference parts, with the other two being upstream's own tracked bugs (a taper-law
+fillet's area and a thicken), neither of them typical maker work. What P0 did **not** show:
+- that solidcore handles *maker* parts (box joints, a dresser, sheet goods): SolidCraft's corpus is a
+  CAD-feature corpus. A maker corpus is still to be written (doc 15 R1);
+- speed in an optimised build: every number here is from a debug build with solidcore at opt-level 1;
+- hard fillets at interactive speed: variable and spline-radius fillets took 28–46 s per case.
+
+Not done yet in P0: the `doc` extension options, and the CADCraft/DraftCraft/PlanCraft start times (not
+cloned here). Doc 14 also says "file an upstream issue" for the Vulkan crash; that is not done, because we do not
+contact the SolidCraft makers. Doc 12 lists the potato's disk as a SATA SSD; this PC has a spinning laptop drive,
+which explains much of the start time.
+
+P0's exit criterion (doc 14) is "SolidCraft runs on the potato at ≥ 30 fps orbit on a reference part with
+a forced backend"; the graphics verdict is above. Screenshots of stock SolidCraft stay in `target/p0`
+(local, never committed: they carry SolidCraft's brand).
+
+## 2026-11-19 — wave 1: the first Crew modules
+
+Review: [docs/crew/mk-core-1-review.md](docs/crew/mk-core-1-review.md).
+
+| Claim | Command | Result |
+|---|---|---|
+| Campaign mk-core-1 finished on its own | `runs/crew/campaigns/mk-core-1/REPORT.md` (ATLAS-api-harness) | 4/4 accepted, 17 requests, 406,430 tokens, first try 3/4 |
+| A failed member's task went to the next one, unattended | same, progress log | 19:32 Qwen's provider 504 ×3 → relayed to Gordon → accepted 19:49 |
+| `mk-units` and `mk-nest` are the Crew's files unchanged | `Get-FileHash` outbox vs `crates/*/src/lib.rs` | identical |
+| Tests pass in this repo | `cargo test --workspace` | mk-units 15 (Crew); mk-nest 13 (Crew) + 15 (contract) |
+| The landed crates pass the hidden tests | scratch crate re-exporting both, `cargo test` | units 17/17, cutstock 13/13 (wave-1 sets) |
+| Lints | `cargo clippy --workspace --all-targets` | 1 warning (`manual_checked_ops`, mk-units:122); v2 fixes it |
+| Tests catch planted defects | `rs_mutants.py --max 40` | Crew tests: units 30/40, cutstock 20/40. Contract tests on cutstock: 24/40, then **28/40** after two new tests; the 12 left are equivalent or noted in the review |
+| Contract gaps found in review | probe tests | a 24-digit number reads as 0 mm; `5'-6"` is rejected. Contract v2 written; campaign **mk-core-2** queued by the keeper at 20:33 |
+
+## 2026-11-19 — wave 2: units version 2
+
+Review: [docs/crew/mk-core-2-review.md](docs/crew/mk-core-2-review.md).
+
+| Claim | Command | Result |
+|---|---|---|
+| Campaign mk-core-2 finished on its own | `runs/crew/campaigns/mk-core-2/REPORT.md` | 2/2 accepted first try (Gordon, Deepak), 2 requests, 59,992 tokens, 20:34 → 20:40 |
+| The gaps are closed | probe test on the v2 module | 24-digit numbers → `NotANumber`; `5'-6"` → 1676.4 mm |
+| v2 passes every contract and Crew test | scratch crate, `cargo test` | contract 22/22, Crew (Deepak) 24/24 |
+| Lints | `cargo clippy --all-targets` | clean |
+| Deepak's tests catch planted defects | `rs_mutants.py --max 40` | 37/40 (v1 with Qwen's tests: 30/40) |
+
+## 2026-11-19 — the first Crew icons
+
+Review: [docs/crew/mk-icons-1-review.md](docs/crew/mk-icons-1-review.md).
+
+| Claim | Command | Result |
+|---|---|---|
+| 18 icons drawn by the Crew pass doc 18's rules | `python tools/icon_lint.py icons_shell.py icons_stock.py` | both ok (hidden tests: the same checks) |
+| 15 read at 16 px and landed | contact sheet `docs/crew/mk-icons-1-sheet.png`, `tools/icons_land.py` | 15 in `apps/mk-desktop/assets/icons/` with attribution; 3 sent back (undo, redo, settings) as mk-icons-2 |
+| The linter catches every rule | `python -m pytest tools/test_icon_lint.py` | 5 passed |
+| Flat tool calls keep their arguments (harness fix) | `python -m pytest tests/test_crew.py` (ATLAS-api-harness) | 199 passed; 2 failures predate the change |
+| The 3 sent back read at 16 px after rework | mk-icons-2, `docs/crew/mk-icons-2-sheet.png` | landed: all 18 icons are in the app |
+
+## 2026-11-19 — wave 3: quick-add (`mk-inventory`)
+
+Review: [docs/crew/mk-core-3-review.md](docs/crew/mk-core-3-review.md).
+
+| Claim | Command | Result |
+|---|---|---|
+| Campaign mk-core-3 finished on its own | `runs/crew/campaigns/mk-core-3/REPORT.md` | 2/2 first try (Deepak wrote, Gordon tested), 15 requests |
+| Quick-add passes the contract | `cargo test -p mk-inventory` | contract 17/17, Crew 21/21 |
+| Lints | `cargo clippy -p mk-inventory --all-targets` | clean |
+
+## 2026-11-19 — the first MakerCAD window (`apps/mk-desktop`, the `makercad` program)
+
+| Claim | Command | Result |
+|---|---|---|
+| Our own shell builds on the reference machine (no SolidCraft UI crates) | `CARGO_TARGET_DIR=target/shell cargo build -p mk-desktop --all-targets -j 2` | builds; 204 crates the first time, while the kernel build was paging |
+| Brand-free | `pwsh tools/brand_free.ps1` | none of `solidcraft-ui-kit`, `-look`, `-theme`, `-ui-egui` among 193 packages |
+| Unit tests | `cargo test -p mk-desktop` | 16 passed (looks, backend choice and memory, icon recolour and rendering, Sancho's drawing, the height caption) |
+| Lints | `cargo clippy -p mk-desktop --all-targets` | clean (one warning inside SolidCraft's vendored egui) |
+| It opens on this PC and picks a working graphics backend | `makercad --demo --screenshot home.png` | DX12 on the Intel HD Graphics 530; `%LOCALAPPDATA%\MakerCAD\graphics.txt` went from `trying dx12` to `ok dx12` |
+| Start time (launch to first frame, debug build) | the status bar's "first frame", `makercad --screenshot` runs | **1.1–1.7 s** on later starts (1734, 1189, 1080, 1273 ms). The very first start took 56.8 s: the first DX12 start on this PC, while the kernel compile was paging. Re-measure a release build with the machine idle |
+| What it looks like | `makercad --demo --size 1440x900 --screenshot …` | `docs/screens/2026-11-19-home-daydream.png`, `-home-night.png` (Night Workshop, Crew icons recoloured), `-home-first-start.png` (no projects yet) |
+| A start that never drew a frame falls back, and the fallback is remembered | memory file set to `trying vulkan` (a simulated Vulkan failure; Vulkan itself not run, it crashed v5 here), then `makercad --demo --screenshot` | started on OpenGL, status bar "gl (the last start on vulkan never drew a frame)", same picture, first frame 3.8 s; memory became `ok gl`; then put back to `ok dx12` |
+| A screenshot or `--look` run leaves the saved look alone | `--look night-workshop --screenshot`, then a plain start | the plain start is Daydream (bug found in the first screenshots, fixed in `save`) |
+| Headless snapshots via egui_kittest | — | dropped: SolidCraft's vendored copy does not compile against its patched egui-wgpu at the pinned rev. `makercad --screenshot` captures the real window instead |
+
+## 2026-11-19 — Sancho v1 (`mk-sancho`)
+
+| Claim | Command | Result |
+|---|---|---|
+| A rigged mannequin with fingers is generated from code | `cargo test -p mk-sancho` | 13 passed: 51 joints, 15 finger bones per hand, parents first, left mirrors right, stands on the floor at the asked height, triangles face outward, both animations loop |
+| The file is a valid glTF a real viewer loads, and the rig moves | `cargo run -p mk-sancho --example write_sancho -- sancho.glb`, then model-viewer 3.5.0 and three.js r128 in Edge | 724 KB `.glb`; renders; the Wave animation raises the right arm with every segment following its bone |
+| Kris can turn him on a phone | private page https://claude.ai/artifact/2gSbnKRx9pwxX8pjTz3RU8 | Still / Wave / Grip, whole figure or left hand |
+| `mk-units` is v2 unchanged | `Get-FileHash` | identical |
+
+## 2026-11-20 — P1: fork, de-brand, MakerCAD shell (started)
+
+Kris, 2026-11-20: "go on with the fork and rebranding" (P0 GO confirmed). Doc 14's P1 exit: a
+de-branded MakerCAD opens on the potato in < 2 s; SolidCraft modelling works inside our shell;
+the `brand-free`, `layers` and `wasm` gates are green; the probe picks DX12/GL and never crashes.
+
+| Claim | Command | Result |
+|---|---|---|
+| "The fork" is D25's pinned path dependencies, now accepted | doc 16 D25 | No git fork: `mk-desktop` depends on 15 SolidCraft crates in `third_party/solidcraft` (engine, doc, kernel, gpu, viewport, viewport-gpu, viewport-egui, control, control-egui, ui-registry, color, ui-text, space-mouse, solidcore-record/-ops/-tess), never the four brand crates |
+| SolidCraft's P0 build cannot be reused by our workspace | `python tools/reuse_check.py` (stops a build before it compiles solidcore and prints the `rustc` line), then `.fingerprint/solidcore-*/` | solidcore's `-C metadata` differs (`0c384edc…` here, `7aadb382…` in P0) with the same compiler (1.99.1, now pinned in `rust-toolchain.toml`), profile, features and `Cargo.lock` (re-synced from SolidCraft's). Cause: Cargo hashes a path dependency by its path relative to the workspace root (`solidcore/crates/solidcore` there, `third_party/solidcraft/solidcore/crates/solidcore` here). Only crates.io crates carry over. Recorded in D25 and the root `Cargo.toml` |
+| The one-time build of SolidCraft's crates in our workspace | `pwsh tools/lowmem_build.ps1 -Package mk-desktop` (log `target/lowmem/mk-desktop/`, progress `watch.log`) | Run 1, 06:31–11:52: 79 crates including solidcore (about 2.5 h). Then the engine at opt-level 1 wanted **6.0 GB** private (P0: 4.6 GB) and paged at about 4% CPU for an hour, so it was stopped. Run 2 from 11:53 with the engine at **opt-level 0** (root `Cargo.toml`): 4.6 GB, but still paging. RAM is full: no free pages, 0.97 GB nonpaged pool, about 1.3 GB for the Claude app. rustc gets about 2.5% CPU, latency-bound on the hard disk (about 80 reads/s while the disk is 67% idle) |
+| Sancho is a scale figure first (D27) | doc 16 §16.11.1, doc 14 P1/P2 | Kris, 2026-11-20: a still, posable figure stands beside every design, as in SketchUp. The figure is the user's choice at any height (a rigged scan of themselves is welcome). Motion (from motion capture) and reactions come last. The hand-keyed Wave was rough; the Grip was fine |
+| A skinned glTF figure is read and posed on the CPU | scratch crate including `crates/mk-sancho/src/figure.rs`, `cargo test` (the main build was using the memory) | **5 passed**. The placeholder reads (23,164 glTF vertices, because glTF splits at seams; 34,128 triangles; 71 bones). Skinning to the rest pose gives back the file's vertices to within 0.1 mm. `standing()` drops the hands 0.44 m below the shoulders, 0.22 m out, with height and feet unchanged. A turn pivots on the bone's head. Cut, scribbled or overstated files are errors, never panics |
+| The standing pose looks right | the posed meshes as OBJ, flat-shaded front and side (scratch `render_obj.py`) | arms hang by the sides, palms toward the thighs; no torn shoulders at this angle |
+| The one-time build finished | run 2 of `tools/lowmem_build.ps1 -Package mk-desktop` | 11:53–12:57 (64 min; the engine at opt-level 0 took about 50 of them). Only `mk-desktop` itself failed, because this run started before the Sancho wiring added `mk-sancho`. Run 3: `mk-sancho` + `mk-desktop` compiled clean; linking the 283 MB debug `makercad.exe` took about 13 min on the hard disk |
+| **First start of the sample crashed** (found, fixed) | `makercad --backend dx12 --sample --screenshot …` exited 0xC000001D after 7.6 s with no message; the opening screen alone was fine (4.8 s). Under `cdb` (Windows SDK): | a `ud2` inside **`dxcompiler.dll`**, compiling a SolidCraft viewport pipeline on a background thread (`viewport-gpu/src/view.rs:3904`). The DLL was **Obsidian's DXC 1.8.2505**, found on `PATH`: eframe's default wgpu setup loads `dxcompiler.dll` by name. SolidCraft documents the same crash and avoids it with `solidcraft_viewport_gpu::dx12_compiler()` (FXC, or DXC only from beside the program). Fix: `graphics::wgpu_configuration()` gives the window that compiler; regression test `the_window_uses_the_viewports_d3d12_compiler_never_one_on_path` |
+| Windows never falls back to Vulkan | `graphics.rs` `ORDER` | It was dx12 → vulkan → gl, against P0's condition 1 (DX12 → GL): after the crash above, the next start would have tried Vulkan, which crashes this driver. Now dx12 → gl; `--backend vulkan` still works. Test `windows_never_falls_back_to_vulkan` |
+| **Design workspace, first light, with Sancho beside the part** | `makercad --retest --sample --size 1440x900 --screenshot target/p1/design-sancho.png` (after the fix above) | exit 0 in 17.7 s; `graphics.txt` → `ok dx12`. SolidCraft's Sample Plate built by its own engine **in 669 ms**, drawn by its viewport pipelines on our window's D3D12 device in **79 ms** (`view … (gpu)`), first frame 3.3 s (debug build). Sancho stands to the plate's right at 1.68 m, so the plate reads as the small part it is. Seen: the "←" of "← Home" drew as a box (the font has no arrow glyph), now plain "Home". After the rebuild: `docs/screens/2026-11-20-design-sancho.png` (opening view, 27.7 s with the test build compiling alongside) and, with the new `--fit`, `docs/screens/2026-11-20-design-fit.png`: the plate's rounded corners, two holes and bored boss, built in 701 ms, view 137 ms |
+| `mk-sancho` passes its gates | `cargo test -p mk-sancho`; `cargo clippy -p mk-sancho --all-targets -- -D warnings`; `cargo fmt --check` | 18 unit (incl. the 5 figure tests) + 5 placeholder tests passed; clippy clean after moving `chunks_exact(N)` to `as_chunks::<N>()`; formatted |
+| `mk-desktop` unit tests | `cargo test -p mk-desktop --lib` (log `target/lowmem/mk-desktop/test.log`) | **22 passed**, including `the_window_uses_the_viewports_d3d12_compiler_never_one_on_path`, `windows_never_falls_back_to_vulkan` and the 4 `scale_figure` tests (true height on the ground at 1.20/1.68/1.905 m, facing the front view and turned toward the design, standing beside it, the mesh reused). Formatted. **Not run yet: `cargo clippy -p mk-desktop`**, which needs a check build of every SolidCraft crate (hours here; due with the CI gate) |
+| Disk: C: down to 0.97 GB | `Get-PSDrive C` | freed 1.2 GB: SolidCraft's P0 `.pdb`s (its exes still run, without symbols), the P0 build of its brand-licensed `ui-egui` (never linked here), scratch builds. Kept P0's engine/kernel builds (hours to redo). 2.15 GB free after; the target dir is 11.4 GB |
+| Sancho stands beside the design | `apps/mk-desktop/src/scale_figure.rs`, `design.rs`; top bar toggle "Sancho 1.68 m" | Posed once, converted to the viewport's mesh (mm, Z up, facing the front view, turned 20° toward the design), placed 300 mm + 10% of the design's span to its right, on the ground. He is added to the picture only (never to the design), and the scene radius covers him. The opening view frames both; "Fit view" and double-click frame the design. 4 unit tests written |
+| Design workspace, first light (built and seen: see the rows below) | `makercad --sample`, or Examples on the opening screen | `apps/mk-desktop/src/design.rs`: an engine `Session` built by SolidCraft's sample script, `view::scene_with_guides`, drawn by SolidCraft's `Capturer` on the window's own device (CPU rasterizer fallback) and shown as an image; orbit, pan, zoom, fit. Our look's background, not SolidCraft's. Next: paint straight into the window's pass (`viewport-egui`) |
+| Crew: 42 more icons for P1's 60 | campaign `mk-icons-3` (sets `view` 10, `sketch` 10, `make` 12, `env` 10), run by the keeper 07:02–10:02 | **4/4 accepted** (3 first try; Gordon's View on attempt 2), 40 requests, 747k tokens. `tools/icon_lint.py`: ok ×4 |
+| The person's half: which read at 16 px | contact sheet `docs/crew/mk-icons-3-sheet.png`, review [docs/crew/mk-icons-3-review.md](docs/crew/mk-icons-3-review.md) | **32 land, 10 rework**: the top/right/iso cubes are alike, the tape measure reads as a key, round-over, bevel and hollow look like the plain box, repeat's blocks are dots, the hammer reads as a T, Stock & Cut is a smudge. The 32 were landed with `tools/icons_land.py --only …` (sidecars written): **the app ships 50 icons** |
+| Crew: the 10 reworked | campaign `mk-icons-4` (set `fix3`, Deepak writes, Kimi tests), registered 13:05 | queued; its hidden test passes on a valid module (13 passed) |
+| Crew: safe saving for the `.maker` file | campaign `mk-core-4` (`atomic.rs`, contract `mk_atomic.md`), registered 07:09 | queued; the 17 hidden tests pass on Claude's reference and clippy is clean (scratch crate, `cargo test`) |
+| Sancho placeholder: BodyKun (D26), the source file | Kris put it on the share (BlendSwap needs a sign-in); copied to `MakerCAD\_downloads\bodykun\` | 3,003,009 bytes (gzip `.blend`, Blender 2.81), sha256 `d01efc62…83af`. Opened only with `--disable-autoexec`: Blender skipped its three embedded scripts (Rigify UI) |
+| What is in it | `blender -b --factory-startup --disable-autoexec FILE --python tools/blender/inspect_blend.py -- OUT.json` (and `inspect_rig.py`) | BodyChan and BodyKun. BodyKun: 12 meshes on `body_kun_rig` (352 bones, **71 deform, 38 of them fingers**), 34,128 triangles, 60.4 units tall. Its finger *controls* are hidden, but its deform finger bones are all there and skinned |
+| BodyKun rebuilt as Sancho's placeholder | `blender -b --factory-startup --disable-autoexec FILE --python tools/blender/export_bodykun.py -- sancho-bodykun.glb 1.68 report.json` | `crates/mk-sancho/assets/sancho-bodykun.glb`, 1.53 MB: one mesh (17,230 vertices, 34,128 triangles), one skin of the **71 DEF bones** (a new armature; Rigify's ORG parents mapped to their DEF twins; one root, `DEF-spine`), material "Sancho wood", **0 to 1.68 m** (Y-up), clips **Wave** (2.4 s) and **Grip** (1.5 s). Blender's `validate` fixed the joined mesh; vertices with more than 4 bone weights keep their 4 largest (glTF's limit) |
+| The asset stays what it claims | `CARGO_TARGET_DIR=target/small cargo test -p mk-sancho --test placeholder` | 5 passed: GLB 2.0 whole, 71 joints and no ORG/MCH bones, Wave + Grip + Sancho wood, height 1.68 m, attribution sidecar names vinchau, CC0 and the source |
+| It renders and the rig moves in a real viewer | three.js r128 in headless Edge (SwiftShader), page `tools/blender/sancho_page.template.html` with `#check=CLIP@SECONDS[,hand]` | rest pose clean; Wave raises the right arm and swings the forearm by the head; Grip closes the left hand into a fist toward the palm (screenshots in the scratchpad, not kept) |
+| Kris can turn him on a phone | https://claude.ai/artifact/2gSbnKRx9pwxX8pjTz3RU8 (version 2, same link) | "Sancho, for now": BodyKun with Still / Wave / Grip, whole figure or left hand, credited to vinchau (CC0) |

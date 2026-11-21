@@ -1,0 +1,10 @@
+sancho-bodykun.glb
+Source: "BodyChan - BodyKun | Posable Drawing Figures" by vinchau, https://blendswap.com/blend/23521
+Licence: CC0 1.0 Universal (public domain dedication)
+Source file: provided by Kris on 2026-11-20 as "BodyChan - BodyKun Posable Drawing Figures.blend",
+  3,003,009 bytes, sha256 d01efc62cf39aee85b6cefb4f12ae229297cebd5fab27da03e6ce5f4bc1683af
+Rebuilt with Blender 4.5.15 LTS by tools/blender/export_bodykun.py (run with --disable-autoexec):
+  BodyKun's 71 deform bones only, its 12 meshes joined, material "Sancho wood", 1.68 m tall,
+  animations Wave and Grip written by MakerCAD.
+Decision D26 (docs/design/16): placeholder until Kris designs Sancho; mk-sancho's code-built
+  figure is the fallback.

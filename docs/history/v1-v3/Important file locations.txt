@@ -1,0 +1,33 @@
+
+Godot Executable: C:\Users\<you>\Godot\Godot_v4.6.2-stable_win64.exe
+
+MCP documentation for Godot! needs to be set up: C:\Users\<you>\godot-mcp-docs
+Godot Documentation Local: C:\Users\<you>\godot-mcp-docs\godot-docs-html-stable
+
+
+"C:\Users\<you>\check_what_i_remember.py"
+C:\Users\<you>\.agent
+
+
+
+Does not work
+C:/dev/makercad-extension/demo/blue_wireframe.tscn
+C:/dev/makercad-extension/demo/boxmesh_primitive_test.tscn
+C:/dev/makercad-extension/demo/create_real_box.tscn
+C:/dev/makercad-extension/demo/csg_primitive_test.tscn
+C:/dev/makercad-extension/demo/cylinder_wireframe_test.tscn
+C:/dev/makercad-extension/demo/debug_cube.tscn
+C:/dev/makercad-extension/demo/optimized_cad_test.tscn
+C:/dev/makercad-extension/demo/phase3_test.tscn
+C:/dev/makercad-extension/demo/simple_solid_test.tscn
+C:/dev/makercad-extension/demo/solid_cad_test.tscn
+C:/dev/makercad-extension/demo/test.tscn
+
+
+some parts work
+
+
+
+successful
+
+

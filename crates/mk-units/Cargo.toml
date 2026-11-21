@@ -1,0 +1,12 @@
+[package]
+name = "mk-units"
+description = "Lengths the way makers type them: feet and inches, fractions, lumber sizes. Millimetres inside."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]

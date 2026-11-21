@@ -1,0 +1,23 @@
+https://forum.godotengine.org/t/godotcad-open-source/135322 MakerCAD should snap to a plane and use tools similar to This program
+https://help.autodesk.com/view/fusion360/ENU/?guid=SKT-3D-SKETCH MakerCAD should build slowly towards replicating all the same tools found in Fusion360, starting with Sketch and construction Tools.
+https://github.com/Formsmith746/SketchForge-3D Similar tool to how MakerCAD should work, at least one workflow. We will accommodate many workstyles and tool calls.
+
+https://github.com/ForgeCAD/forgecad-public-kit not sure if its useful, but I like the documentation. Evaluate both.
+
+https://cheetah-gaming.itch.io/cheetah-mesh This program also has many features we want in MakerCAD. I do not currently have an android device to test Cheetah mesh directly, but if we had some sort of android emulator we could use to run and test Android apps? either way, this tool should be examined closely.
+
+Things I need to do:
+
+Update my Github image, readme
+
+Add my Portfolio to the website
+
+Pick 5 jobs, create a basic cover letter and adapt it to work for each job.
+
+Upload Touch up, Block Writer to github
+
+Pull my favorite AHK scripts and update them add them to github
+
+optionally make a V2 version of each one
+
+

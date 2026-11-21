@@ -1,0 +1,136 @@
+# MakerCAD workspace. SolidCraft is a pinned checkout under third_party/ that our crates
+# reach through path dependencies (decision D25); it keeps its own workspace, so it is
+# excluded here.
+[workspace]
+resolver = "2"
+members = ["crates/mk-units", "crates/mk-nest", "crates/mk-inventory", "crates/mk-sancho", "apps/mk-desktop"]
+exclude = ["third_party"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# The profiles and the egui/winit patches below copy SolidCraft's own (third_party/solidcraft/
+# Cargo.toml at the pinned rev), rust-toolchain.toml pins the same rustc, and .cargo/config.toml
+# shares its target directory. That lets us reuse the crates.io crates the P0 build compiled.
+# It does NOT let us reuse SolidCraft's own crates (or the vendored egui/winit): Cargo hashes a
+# path dependency by its path relative to the workspace root, which differs between their
+# workspace and ours. So the first mk-desktop build with SolidCraft's crates compiles them all,
+# solidcore included (hours here: use tools/lowmem_build.ps1); later builds reuse that build.
+# Keep these in step when the pin moves.
+[profile.dev]
+opt-level = 1
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2
+debug = false
+
+# SolidCraft's own crates are members of *its* workspace, so it builds them with its
+# [profile.dev] (opt-level 1, line tables), not the "*" override. Here they are not members, so
+# that is said per crate: the same code generation as upstream's dev builds, and less memory and
+# time to compile on the reference machine than opt-level 2. The list is the SolidCraft workspace
+# members in mk-desktop's graph.
+[profile.dev.package.craft-plugin]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.craft-plugin-wasm]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-color]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-control]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-control-egui]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-derive]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-develop]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-doc]
+opt-level = 1
+debug = "line-tables-only"
+# Except the engine: at opt-level 1 its rustc wanted 6 GB here (P0, in SolidCraft's workspace:
+# 4.6 GB) and paged at ~4% CPU for an hour. Unoptimised it stays in RAM. It is not the orbit's hot
+# path (solidcore, tess and the viewport crates stay at 1); revisit with an optimised build.
+[profile.dev.package.solidcraft-engine]
+opt-level = 0
+debug = false
+[profile.dev.package.solidcraft-format]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-geom]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-gpu]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-io]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-kernel]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-panel-layout]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-profile]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-render]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-sketch]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-smlib]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-space-mouse]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-ui-registry]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-ui-text]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-viewport]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-viewport-egui]
+opt-level = 1
+debug = "line-tables-only"
+[profile.dev.package.solidcraft-viewport-gpu]
+opt-level = 1
+debug = "line-tables-only"
+
+# solidcore is not a member of SolidCraft's workspace (it gets "*", opt-level 2), but this PC
+# compiled it at opt-level 1 to fit in 8 GB (`tools/p0_build.ps1 -LowMemory`, STATUS P0).
+[profile.dev.package.solidcore]
+opt-level = 1
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 16
+debug = "line-tables-only"
+
+[patch.crates-io]
+ecolor = { path = "third_party/solidcraft/vendor/egui/crates/ecolor" }
+eframe = { path = "third_party/solidcraft/vendor/egui/crates/eframe" }
+egui = { path = "third_party/solidcraft/vendor/egui/crates/egui" }
+egui-wgpu = { path = "third_party/solidcraft/vendor/egui/crates/egui-wgpu" }
+egui-winit = { path = "third_party/solidcraft/vendor/egui/crates/egui-winit" }
+egui_glow = { path = "third_party/solidcraft/vendor/egui/crates/egui_glow" }
+emath = { path = "third_party/solidcraft/vendor/egui/crates/emath" }
+epaint = { path = "third_party/solidcraft/vendor/egui/crates/epaint" }
+epaint_default_fonts = { path = "third_party/solidcraft/vendor/egui/crates/epaint_default_fonts" }
+winit = { path = "third_party/solidcraft/vendor/winit" }

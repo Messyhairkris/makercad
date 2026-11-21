@@ -1,0 +1,9 @@
+/target/
+/third_party/solidcraft/
+/reference/
+*.profraw
+/.claude/settings.local.json
+
+__pycache__/
+*.pyc
+/dist/

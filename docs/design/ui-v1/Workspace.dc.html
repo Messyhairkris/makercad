@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Workspace: Alcove dresser</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&amp;family=Patrick+Hand&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B5FA8}a:hover{color:#1D4580}
+</style>
+</helmet>
+<div style="min-height: 900px; box-sizing: border-box; background: {{t.bg}}; color: {{t.ink}}; font-family: Nunito, system-ui, sans-serif; display: flex; flex-direction: column;">
+
+  <header style="display: flex; align-items: center; gap: 12px; padding: 10px 16px; flex-wrap: wrap; background: {{t.panel}}; border-bottom: 2px solid {{t.line}};">
+    <a href="Main.dc.html" aria-label="Back to the opening screen" style="display: flex;"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><path d="M16 44 C8 44 6 34 14 32 C14 22 26 18 32 26 C36 18 50 20 50 30 C58 30 58 44 50 44 Z" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="4" stroke-linejoin="round"/><path d="M26 38 L32 32 L38 38" fill="none" stroke="#FF8A7A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+    <button style="min-height: 40px; border: none; background: none; font-family: inherit; font-size: 17px; font-weight: 800; color: {{t.ink}}; cursor: pointer; padding: 0 6px;">Alcove dresser ▾</button>
+    <button style="min-height: 36px; max-width: 420px; border: 2px solid {{t.line}}; border-radius: 18px; background: {{t.bg2}}; font-family: inherit; font-size: 14px; color: {{t.ink}}; cursor: pointer; padding: 0 14px; display: flex; align-items: center; gap: 8px; overflow: hidden;"><svg width="18" height="18" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="12" width="48" height="40" rx="6" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="5"/><path d="M32 42 C20 34 22 22 30 26 L32 28 L34 26 C42 22 44 34 32 42 Z" fill="#FF8A7A" stroke="#2B2A4C" stroke-width="3"/></svg><span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">“Build a dresser to fill the weird cutout in my bedroom wall…”</span></button>
+    <div style="flex-grow: 1;"></div>
+    <span style="font-size: 14px; font-weight: 700; background: #C3E6C4; color: #2B2A4C; border-radius: 12px; padding: 5px 12px;">◷ 12 days · 3 days slack</span>
+    <button style="min-height: 36px; border: 2px solid {{t.line}}; border-radius: 12px; background: {{t.bg2}}; font-family: inherit; font-size: 14px; color: {{t.muted}}; cursor: pointer; padding: 0 12px;">Search tools · Ctrl K</button>
+    <button aria-label="Sancho: speaking (click to silence)" style="width: 40px; height: 40px; border-radius: 20px; border: 2px solid {{t.line}}; background: #E6F2FF; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><ellipse cx="32" cy="30" rx="18" ry="20" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="4"/><circle cx="26" cy="29" r="3" fill="#2B2A4C"/><circle cx="38" cy="29" r="3" fill="#2B2A4C"/></svg></button>
+  </header>
+
+  <nav aria-label="Environments" style="display: flex; align-items: flex-end; gap: 6px; padding: 8px 16px 0; flex-wrap: wrap; background: {{t.panel}}; border-bottom: 2px solid {{t.line}};">
+    <sc-for list="{{tabs}}" as="tab" hint-placeholder-count="7">
+      <button onClick="{{tab.pick}}" aria-pressed="{{tab.pressed}}" style="{{tab.style}}"><span style="width: 10px; height: 10px; border-radius: 5px; background: {{tab.color}};"></span>{{tab.label}}</button>
+    </sc-for>
+    <button style="min-height: 38px; padding: 0 14px; border: 2px dashed {{t.line}}; border-bottom: none; border-radius: 14px 14px 0 0; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: {{t.muted}}; cursor: pointer;">+ Environment</button>
+  </nav>
+
+  <div style="flex-grow: 1; display: flex; flex-wrap: wrap; min-height: 0;">
+
+    <aside aria-label="Toolbox and inventory" style="flex: 1 1 200px; max-width: 230px; background: {{t.panel}}; border-right: 2px solid {{t.line}}; padding: 12px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px;">
+      <span style="font-size: 12px; font-weight: 800; color: {{t.muted}}; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 6px;">Toolbox · for this project</span>
+      <button style="min-height: 40px; display: flex; align-items: center; gap: 10px; border: none; border-radius: 12px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: {{t.ink}}; cursor: pointer; padding: 0 6px; text-align: left;"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect x="6" y="24" width="52" height="18" rx="4" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="4"/><path d="M14 33 C24 30 36 36 50 32" fill="none" stroke="#2B2A4C" stroke-width="3" stroke-linecap="round"/></svg>Board from stock</button>
+      <button style="min-height: 40px; display: flex; align-items: center; gap: 10px; border: none; border-radius: 12px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: {{t.ink}}; cursor: pointer; padding: 0 6px; text-align: left;"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 20 L44 12 L56 40 L20 50 Z" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="4" stroke-linejoin="round"/></svg>Panel from stock</button>
+      <button style="min-height: 40px; display: flex; align-items: center; gap: 10px; border: none; border-radius: 12px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: {{t.ink}}; cursor: pointer; padding: 0 6px; text-align: left;"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="30" width="44" height="24" rx="4" fill="#CFE3FA" stroke="#2B2A4C" stroke-width="4"/><path d="M32 26 L32 8 M24 16 L32 8 L40 16" fill="none" stroke="#FF8A7A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>Extrude</button>
+      <button style="min-height: 40px; display: flex; align-items: center; gap: 10px; border: none; border-radius: 12px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: {{t.ink}}; cursor: pointer; padding: 0 6px; text-align: left;"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect x="8" y="34" width="48" height="22" rx="4" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="4"/><path d="M32 6 L32 30" stroke="#2B2A4C" stroke-width="6" stroke-linecap="round"/><ellipse cx="32" cy="38" rx="7" ry="3" fill="#2B2A4C"/></svg>Hole</button>
+      <button aria-pressed="true" style="min-height: 40px; display: flex; align-items: center; gap: 10px; border: 2px solid #5FA8F5; border-radius: 12px; background: #E6F2FF; font-family: inherit; font-size: 14px; font-weight: 800; color: #2B2A4C; cursor: pointer; padding: 0 6px; text-align: left;"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="8" width="44" height="48" rx="4" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="4"/><rect x="16" y="14" width="32" height="16" rx="3" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="3"/><rect x="16" y="34" width="32" height="16" rx="3" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="3"/><path d="M28 22 L36 22 M28 42 L36 42" stroke="#2B2A4C" stroke-width="3" stroke-linecap="round"/></svg>Drawer wizard</button>
+      <button style="min-height: 40px; display: flex; align-items: center; gap: 10px; border: none; border-radius: 12px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: {{t.ink}}; cursor: pointer; padding: 0 6px; text-align: left;"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="20" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="4"/><circle cx="32" cy="32" r="8" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="3"/><path d="M26 32 L38 32" stroke="#2B2A4C" stroke-width="3" stroke-linecap="round"/></svg>Cam lock</button>
+      <button style="min-height: 40px; display: flex; align-items: center; gap: 10px; border: none; border-radius: 12px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: {{t.ink}}; cursor: pointer; padding: 0 6px; text-align: left;"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 56 L8 10 L56 10" fill="none" stroke="#2B2A4C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><rect x="16" y="18" width="32" height="38" rx="3" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="4"/><path d="M16 14 L48 14" stroke="#2BA471" stroke-width="3" stroke-linecap="round"/></svg>Fit to space</button>
+      <button style="min-height: 40px; display: flex; align-items: center; gap: 10px; border: none; border-radius: 12px; background: transparent; font-family: inherit; font-size: 14px; font-weight: 700; color: {{t.ink}}; cursor: pointer; padding: 0 6px; text-align: left;"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><path d="M10 40 L54 40 L54 54 L10 54 Z" fill="#F7C548" stroke="#2B2A4C" stroke-width="4" stroke-linejoin="round"/><path d="M18 40 L18 46 M26 40 L26 48 M34 40 L34 46 M42 40 L42 48" stroke="#2B2A4C" stroke-width="3" stroke-linecap="round"/><path d="M10 40 L10 12 L22 12 L22 40" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="4" stroke-linejoin="round"/></svg>Measure</button>
+
+      <div style="height: 2px; background: {{t.line}}; margin: 8px 0;"></div>
+      <span style="font-size: 12px; font-weight: 800; color: {{t.muted}}; text-transform: uppercase; letter-spacing: 0.6px; padding: 2px 6px;">Inventory</span>
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 6px; font-size: 13px;">
+        <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-weight: 700;">Pine 2x4 @ 36″</span><span style="height: 8px; border-radius: 4px; background: {{t.line}}; display: flex;"><span style="width: 73%; border-radius: 4px; background: #7BC47F;"></span></span><span style="color: {{t.muted}};">11 of 15 used · 4 left</span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-weight: 700;">¾″ plywood 4′×8′</span><span style="height: 8px; border-radius: 4px; background: {{t.line}}; display: flex;"><span style="width: 100%; border-radius: 4px; background: #F08C00;"></span></span><span style="color: {{t.muted}};">1.08 of 1 sheet ⚠</span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-weight: 700;">Drawer slides 14″</span><span style="color: {{t.muted}};">4 of 4 pairs ✓</span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px;"><span style="font-weight: 700;">Old bookshelf (salvage)</span><span style="color: {{t.muted}};">not claimed yet</span></div>
+      </div>
+    </aside>
+
+    <main aria-label="Viewport" style="flex: 999 1 520px; min-width: 0; position: relative; background: linear-gradient(180deg, #F5F9FF 0%, #FFF8EC 100%); display: flex; flex-direction: column;">
+      <div style="position: absolute; top: 12px; left: 12px; display: flex; gap: 6px; flex-wrap: wrap;">
+        <button style="min-height: 34px; padding: 0 12px; border-radius: 10px; border: 2px solid #E4DCCB; background: #FFFDF7; font-family: inherit; font-size: 13px; font-weight: 700; color: #2B2A4C; cursor: pointer;">Home</button>
+        <button style="min-height: 34px; padding: 0 12px; border-radius: 10px; border: 2px solid #E4DCCB; background: #FFFDF7; font-family: inherit; font-size: 13px; font-weight: 700; color: #2B2A4C; cursor: pointer;">Top</button>
+        <button style="min-height: 34px; padding: 0 12px; border-radius: 10px; border: 2px solid #E4DCCB; background: #FFFDF7; font-family: inherit; font-size: 13px; font-weight: 700; color: #2B2A4C; cursor: pointer;">Front</button>
+        <button style="min-height: 34px; padding: 0 12px; border-radius: 10px; border: 2px solid #E4DCCB; background: #FFFDF7; font-family: inherit; font-size: 13px; font-weight: 700; color: #2B2A4C; cursor: pointer;">Right</button>
+        <button style="min-height: 34px; padding: 0 12px; border-radius: 10px; border: 2px solid #E4DCCB; background: #FFFDF7; font-family: inherit; font-size: 13px; font-weight: 700; color: #2B2A4C; cursor: pointer;">Scan: ghost</button>
+      </div>
+      <div style="position: absolute; top: 12px; right: 12px; font-size: 13px; font-weight: 800; background: #C3E6C4; color: #2B2A4C; border: 2px solid #2BA471; border-radius: 12px; padding: 6px 12px;">Fits ✓ 3 mm each side</div>
+
+      <svg viewBox="0 0 800 500" role="img" aria-label="The dresser standing in the bedroom alcove, with Sancho beside it pointing at the top drawer" style="width: 100%; height: auto; flex-grow: 1; display: block; margin-top: 44px;">
+        <polygon points="40,40 760,40 760,330 40,330" fill="#EEF4FB"/>
+        <polygon points="0,330 800,330 800,500 0,500" fill="#F6EBDD"/>
+        <path d="M0 330 L800 330" stroke="#2B2A4C" stroke-width="3" opacity="0.35"/>
+        <polygon points="240,80 540,80 540,330 240,330" fill="#DDE8F5" stroke="#2B2A4C" stroke-width="3"/>
+        <polygon points="240,80 262,98 262,330 240,330" fill="#CFDDF0"/>
+        <polygon points="240,80 540,80 518,98 262,98" fill="#D4E2F3"/>
+        <rect x="40" y="314" width="200" height="16" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="2.5"/>
+        <rect x="540" y="314" width="220" height="16" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="2.5"/>
+        <rect x="88" y="120" width="88" height="64" rx="4" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="3"/>
+        <path d="M100 172 L124 146 L140 160 L152 150 L166 172 Z" fill="#AEE8D7" stroke="#2B2A4C" stroke-width="2"/>
+        <g fill="#7C8FB0" opacity="0.4"><circle cx="70" cy="70" r="2"/><circle cx="210" cy="60" r="2"/><circle cx="600" cy="90" r="2"/><circle cx="690" cy="150" r="2"/><circle cx="640" cy="240" r="2"/><circle cx="120" cy="260" r="2"/><circle cx="200" cy="210" r="2"/><circle cx="730" cy="60" r="2"/><circle cx="580" cy="300" r="2"/><circle cx="60" cy="300" r="2"/></g>
+        <polygon points="268,134 512,134 524,122 280,122" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="3" stroke-linejoin="round"/>
+        <polygon points="512,134 524,122 524,316 512,328" fill="#C98B55" stroke="#2B2A4C" stroke-width="3" stroke-linejoin="round"/>
+        <rect x="268" y="134" width="244" height="194" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="3"/>
+        <rect x="280" y="144" width="220" height="40" rx="5" fill="#F3DCC0" stroke="#F08C00" stroke-width="4" stroke-dasharray="10 6"/>
+        <rect x="280" y="190" width="220" height="40" rx="5" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="2.5"/>
+        <rect x="280" y="236" width="220" height="40" rx="5" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="2.5"/>
+        <rect x="280" y="282" width="220" height="38" rx="5" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="2.5"/>
+        <rect x="372" y="160" width="36" height="8" rx="4" fill="#2B2A4C"/>
+        <rect x="372" y="206" width="36" height="8" rx="4" fill="#2B2A4C"/>
+        <rect x="372" y="252" width="36" height="8" rx="4" fill="#2B2A4C"/>
+        <rect x="372" y="297" width="36" height="8" rx="4" fill="#2B2A4C"/>
+        <path d="M268 104 L512 104 M268 98 L268 110 M512 98 L512 110" stroke="#2B2A4C" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="350" y="92" width="80" height="24" rx="12" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="2"/>
+        <text x="390" y="109" text-anchor="middle" font-family="Nunito, sans-serif" font-size="14" font-weight="800" fill="#2B2A4C">806 mm</text>
+        <rect x="300" y="262" width="16" height="22" rx="3" fill="#FFFDF7" stroke="#2B2A4C" stroke-width="2" opacity="0.6"/>
+        <g transform="translate(578,138) scale(0.82)">
+          <ellipse cx="110" cy="368" rx="70" ry="9" fill="#2B2A4C" opacity="0.15"/>
+          <path d="M92 240 L84 300 L80 358" fill="none" stroke="#2B2A4C" stroke-width="22" stroke-linecap="round"/>
+          <path d="M92 240 L84 300 L80 358" fill="none" stroke="#F3DCC0" stroke-width="15" stroke-linecap="round"/>
+          <path d="M128 240 L136 300 L140 358" fill="none" stroke="#2B2A4C" stroke-width="22" stroke-linecap="round"/>
+          <path d="M128 240 L136 300 L140 358" fill="none" stroke="#F3DCC0" stroke-width="15" stroke-linecap="round"/>
+          <circle cx="84" cy="300" r="9" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="3.5"/>
+          <circle cx="136" cy="300" r="9" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="3.5"/>
+          <path d="M70 362 L94 362 M128 362 L152 362" stroke="#2B2A4C" stroke-width="12" stroke-linecap="round"/>
+          <rect x="80" y="214" width="60" height="40" rx="20" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="4"/>
+          <rect x="78" y="118" width="64" height="98" rx="30" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="4"/>
+          <rect x="126" y="196" width="16" height="16" rx="4" fill="#F7C548" stroke="#2B2A4C" stroke-width="3"/>
+          <path d="M136 132 L158 172 L138 204" fill="none" stroke="#2B2A4C" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M136 132 L158 172 L138 204" fill="none" stroke="#F3DCC0" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="158" cy="172" r="8" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="3.5"/>
+          <path d="M84 132 L46 126 L8 112" fill="none" stroke="#2B2A4C" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M84 132 L46 126 L8 112" fill="none" stroke="#F3DCC0" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="46" cy="126" r="8" fill="#E8C9A8" stroke="#2B2A4C" stroke-width="3.5"/>
+          <circle cx="2" cy="110" r="10" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="3.5"/>
+          <path d="M-6 106 L-30 98 M0 118 L-6 128 M6 120 L4 130" fill="none" stroke="#2B2A4C" stroke-width="7" stroke-linecap="round"/>
+          <path d="M-6 106 L-30 98 M0 118 L-6 128 M6 120 L4 130" fill="none" stroke="#F3DCC0" stroke-width="3.5" stroke-linecap="round"/>
+          <rect x="102" y="96" width="16" height="24" rx="6" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="4"/>
+          <ellipse cx="104" cy="70" rx="30" ry="34" fill="#F3DCC0" stroke="#2B2A4C" stroke-width="4"/>
+          <circle cx="92" cy="68" r="4" fill="#2B2A4C"/>
+          <circle cx="110" cy="68" r="4" fill="#2B2A4C"/>
+          <path d="M86 56 L96 52 M106 52 L116 56" stroke="#2B2A4C" stroke-width="3" stroke-linecap="round"/>
+        </g>
+      </svg>
+
+      <div style="position: absolute; right: 24px; top: 74px; max-width: 250px; background: #FFFDF7; color: #2B2A4C; border: 2px solid #2B2A4C; border-radius: 20px; padding: 12px 14px; font-family: 'Patrick Hand', Nunito, cursive; font-size: 19px; line-height: 1.3;">Hmm. The top drawer's runners sit 4 mm below the rail. Want me to line them up?</div>
+
+      <section aria-label="Timeline" style="background: {{t.panel}}; border-top: 2px solid {{t.line}}; padding: 10px 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span style="font-size: 12px; font-weight: 800; color: {{t.muted}}; text-transform: uppercase; letter-spacing: 0.6px; margin-right: 6px;">Timeline</span>
+        <span style="font-size: 13px; font-weight: 700; background: #AEE8D7; color: #2B2A4C; border-radius: 10px; padding: 5px 10px;">Room from scan</span>
+        <span style="font-size: 13px; font-weight: 700; background: #B5D6FA; color: #2B2A4C; border-radius: 10px; padding: 5px 10px;">Carcass fit to alcove</span>
+        <span style="font-size: 13px; font-weight: 700; background: #E8C9A8; color: #2B2A4C; border-radius: 10px; padding: 5px 10px;">4 posts from 2x4s</span>
+        <span style="font-size: 13px; font-weight: 700; background: #E8C9A8; color: #2B2A4C; border-radius: 10px; padding: 5px 10px;">14 rails from 2x4s</span>
+        <span style="font-size: 13px; font-weight: 700; background: #E8C9A8; color: #2B2A4C; border-radius: 10px; padding: 5px 10px;">Sides and top from ply</span>
+        <span style="font-size: 13px; font-weight: 800; background: #FFFDF7; color: #2B2A4C; border: 2px solid #5FA8F5; border-radius: 10px; padding: 3px 10px;">4 drawer boxes (editing)</span>
+        <span style="width: 4px; height: 26px; border-radius: 2px; background: #FF8A7A;" aria-label="Rollback marker"></span>
+        <div style="flex-grow: 1;"></div>
+        <button style="min-height: 32px; padding: 0 10px; border-radius: 10px; border: 2px solid {{t.line}}; background: {{t.bg2}}; font-family: inherit; font-size: 12px; font-weight: 700; color: {{t.ink}}; cursor: pointer;">Maker words · Feature names</button>
+      </section>
+    </main>
+
+    <aside aria-label="Command and findings" style="flex: 1 1 260px; max-width: 300px; background: {{t.panel}}; border-left: 2px solid {{t.line}}; padding: 14px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px;">
+      <h2 style="margin: 0; font-size: 16px; font-weight: 800;">Drawer wizard</h2>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700;">How many drawers
+        <input value="4" style="min-height: 38px; border: 2px solid {{t.line}}; border-radius: 10px; padding: 0 10px; font-family: inherit; font-size: 15px; color: #2B2A4C; background: #FFFFFF;"></label>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700;">Slides
+        <select style="min-height: 38px; border: 2px solid {{t.line}}; border-radius: 10px; padding: 0 8px; font-family: inherit; font-size: 15px; color: #2B2A4C; background: #FFFFFF;"><option>14″ side-mount (you have 4 pairs)</option><option>Wooden runners from offcuts</option></select></label>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 700;">Side clearance (from the slide's sheet)
+        <input value="12.7 mm (½″)" style="min-height: 38px; border: 2px solid {{t.line}}; border-radius: 10px; padding: 0 10px; font-family: inherit; font-size: 15px; color: #2B2A4C; background: #FFFFFF;"></label>
+      <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700;"><input type="checkbox" checked="checked" style="width: 20px; height: 20px;">Preview in the room</label>
+      <div style="display: flex; gap: 8px;">
+        <button style="flex-grow: 1; min-height: 42px; border-radius: 12px; border: 2px solid #2B2A4C; background: #5FA8F5; font-family: inherit; font-size: 15px; font-weight: 800; color: #2B2A4C; cursor: pointer;">Make drawers</button>
+        <button style="min-height: 42px; padding: 0 14px; border-radius: 12px; border: 2px solid {{t.line}}; background: {{t.bg2}}; font-family: inherit; font-size: 15px; font-weight: 700; color: {{t.ink}}; cursor: pointer;">Cancel</button>
+      </div>
+
+      <div style="height: 2px; background: {{t.line}}; margin: 4px 0;"></div>
+      <h2 style="margin: 0; font-size: 16px; font-weight: 800;">Findings · 3</h2>
+      <div style="border: 2px solid #F08C00; background: #FFF6E8; color: #2B2A4C; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.4;">
+        <strong style="font-size: 14px;">Fit · top drawer runners</strong>
+        <span>They sit 4 mm below the rail, so the drawer will rub. Why? The rail is 2x4 actual height, not nominal.</span>
+        <button style="align-self: flex-start; min-height: 32px; padding: 0 10px; border-radius: 10px; border: 2px solid #2B2A4C; background: #FFFDF7; font-family: inherit; font-size: 13px; font-weight: 800; color: #2B2A4C; cursor: pointer;">Line them up</button>
+      </div>
+      <div style="border: 2px solid #E4DCCB; background: #FFFDF7; color: #2B2A4C; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.4;">
+        <strong style="font-size: 14px;">Stock · plywood 1.08 of 1 sheet</strong>
+        <span>Drawer bottoms from the old bookshelf's hardboard back would fit.</span>
+        <button style="align-self: flex-start; min-height: 32px; padding: 0 10px; border-radius: 10px; border: 2px solid #2B2A4C; background: #FFFDF7; font-family: inherit; font-size: 13px; font-weight: 800; color: #2B2A4C; cursor: pointer;">Show options</button>
+      </div>
+      <div style="border: 2px solid #E4DCCB; background: #FFFDF7; color: #2B2A4C; border-radius: 14px; padding: 10px 12px; font-size: 13px; line-height: 1.4;">
+        <strong style="font-size: 14px;">Safety · anti-tip strap</strong><br>Tall, shallow, drawers out: added to the shopping list.
+      </div>
+    </aside>
+  </div>
+
+  <footer aria-label="Status" style="display: flex; align-items: center; gap: 14px; padding: 8px 16px; flex-wrap: wrap; background: {{t.panel}}; border-top: 2px solid {{t.line}}; font-size: 13px; font-variant-numeric: tabular-nums;">
+    <span style="display: flex; align-items: center; gap: 8px; font-weight: 700;">Pine 2x4 <span style="width: 90px; height: 10px; border-radius: 5px; background: {{t.line}}; display: flex;"><span style="width: 73%; border-radius: 5px; background: #7BC47F;"></span></span>11 / 15 · waste 9%</span>
+    <span style="font-weight: 700; color: {{t.ink}};">¾″ ply 1.08 / 1 ⚠</span>
+    <span style="font-weight: 700;">Fits ✓ 3 mm</span>
+    <span style="font-weight: 700;">$38 / $120</span>
+    <div style="flex-grow: 1;"></div>
+    <span style="color: {{t.muted}};">This PC: Potato · OpenGL · 34 fps</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["Daydream","Pastel","Night Workshop"],"default":"Daydream"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { active: 'Solid' };
+  }
+  renderVals() {
+    const themes = {
+      'Daydream': { bg: '#FFF8EC', bg2: '#FFF8EC', panel: '#FFFDF7', ink: '#2B2A4C', muted: '#5B5775', line: '#E4DCCB' },
+      'Pastel': { bg: '#F7F4FB', bg2: '#F7F4FB', panel: '#FFFFFF', ink: '#3A3550', muted: '#625C78', line: '#E7E0F5' },
+      'Night Workshop': { bg: '#1F1D2B', bg2: '#2A2838', panel: '#2A2838', ink: '#F2EEE6', muted: '#C9C3D6', line: '#3B384D' }
+    };
+    const t = themes[this.props.theme] || themes['Daydream'];
+    const envs = [
+      ['Sketch', '#FF8A7A'], ['Solid', '#5FA8F5'], ['Quick Build', '#F7C548'], ['Space', '#4CC9A6'],
+      ['Stock & Cut', '#C98B55'], ['Plan', '#7BC47F'], ['Journal', '#F5A66B']
+    ];
+    const tabs = envs.map(([label, color]) => {
+      const on = this.state.active === label;
+      return {
+        label, color, pressed: on ? 'true' : 'false',
+        pick: () => this.setState({ active: label }),
+        style: 'min-height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 8px; border: 2px solid ' + (on ? color : t.line) + '; border-bottom: none; border-radius: 14px 14px 0 0; background: ' + (on ? '#FFFDF7' : t.bg2) + '; font-family: inherit; font-size: 14px; font-weight: ' + (on ? '800' : '700') + '; color: #2B2A4C; cursor: pointer; box-shadow: ' + (on ? 'inset 0 4px 0 ' + color : 'none') + ';'
+      };
+    });
+    return { t, tabs };
+  }
+}
+</script>
+</body>
+</html>

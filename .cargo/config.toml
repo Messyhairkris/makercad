@@ -1,0 +1,7 @@
+# Share SolidCraft's target directory, so crates it already compiled (wgpu, winit, egui, the
+# kernel...) are reused rather than built twice. See the note in the root Cargo.toml.
+[build]
+target-dir = "third_party/solidcraft/target"
+# The P0 build ran with CARGO_INCREMENTAL=0 (tools/p0_build.ps1). Path dependencies are built
+# incrementally by default, which would make SolidCraft's crates count as changed.
+incremental = false

@@ -1,0 +1,13 @@
+[package]
+name = "mk-inventory"
+description = "The maker's stock: quick-add lines read into boards, sheets and other materials (docs 04 and 05)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+mk-units = { path = "../mk-units" }

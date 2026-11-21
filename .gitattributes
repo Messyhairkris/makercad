@@ -1,0 +1,6 @@
+# Text files are stored with LF; binaries are never converted.
+* text=auto
+*.glb binary
+*.png binary
+*.jpg binary
+*.ico binary

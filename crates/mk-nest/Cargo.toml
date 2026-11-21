@@ -1,0 +1,12 @@
+[package]
+name = "mk-nest"
+description = "Lays parts out on the boards a maker has (1D cutting stock), counting kerf, waste and usable offcuts."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]

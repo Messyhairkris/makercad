@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MakerCAD C11 Test Pass — local</title>
+<style>
+/* Deliberately no web fonts and no network of any kind: this file has to
+   work with the machine offline, because a hosted version drops typing
+   when it reconnects. Everything here is local. */
+:root{
+  --ground:#f6f8fa; --panel:#fff; --panel-2:#eef2f6;
+  --ink:#1a1e23; --muted:#5d6b79; --faint:#8b97a4;
+  --rule:#dde3ea; --rule-strong:#c4cdd7; --accent:#33556f;
+  --ok:#2f7d55; --warn:#b3761f; --na:#7d8894;
+  --live:#c0392b; --busy:#e5a33f; --idle:#9aa5b1;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ground:#14171b; --panel:#1b1f25; --panel-2:#22272e;
+    --ink:#e3e8ed; --muted:#9aa6b3; --faint:#6f7c8a;
+    --rule:#2a3038; --rule-strong:#3a424c; --accent:#8fb3ce;
+    --ok:#5aae7d; --warn:#d8a049; --na:#8a95a1;
+  }
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);margin:0;padding:0 20px 90px;
+     font:16px/1.6 Georgia,"Times New Roman",serif}
+.wrap{max-width:900px;margin:0 auto}
+h1,h2,.ui,button{font-family:"Segoe UI",system-ui,sans-serif}
+code,.mono{font-family:Consolas,"Courier New",monospace}
+
+header{padding:34px 0 18px;border-bottom:2px solid var(--ink)}
+.eyebrow{font:600 11px/1 "Segoe UI",sans-serif;letter-spacing:.14em;
+         text-transform:uppercase;color:var(--muted);
+         display:flex;gap:10px;align-items:center}
+.lamp{width:9px;height:9px;border-radius:50%;display:inline-block}
+h1{font-size:34px;margin:10px 0 6px;letter-spacing:-.02em}
+.lede{color:var(--muted);max-width:62ch;margin:0}
+
+.bar-wrap{position:sticky;top:0;z-index:9;background:var(--ground);
+          padding:11px 0;border-bottom:1px solid var(--rule);
+          display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.bar{flex:1 1 200px;height:8px;border-radius:99px;background:var(--panel-2);
+     display:flex;overflow:hidden;min-width:170px}
+.bar span{height:100%}
+.tally{font:500 12.5px "Segoe UI",sans-serif;color:var(--muted);
+       display:inline-flex;gap:6px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%}
+.saved{margin-left:auto;font:11.5px Consolas,monospace;color:var(--faint)}
+
+section{margin:34px 0 0}
+.shead{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.snum{font:500 13px Consolas,monospace;color:var(--accent)}
+h2{font-size:20px;margin:0}
+.stime{font:500 12px "Segoe UI",sans-serif;color:var(--faint);margin-left:auto}
+.snote{color:var(--muted);font-size:15px;margin:4px 0 14px;max-width:64ch}
+
+.item{background:var(--panel);border:1px solid var(--rule);border-radius:7px;
+      padding:12px 14px;margin-bottom:9px;display:grid;gap:8px;
+      grid-template-columns:1fr auto;align-items:start}
+.item[data-s="ok"]{border-left:3px solid var(--ok)}
+.item[data-s="warn"]{border-left:3px solid var(--warn);background:var(--panel-2)}
+.item[data-s="na"]{border-left:3px solid var(--na);opacity:.7}
+.what b{font:600 15px "Segoe UI",sans-serif;display:block;margin-bottom:2px}
+.what p{margin:2px 0 0;font-size:14.5px;color:var(--muted)}
+.expect{margin-top:6px;padding:7px 9px;border-radius:5px;background:var(--panel-2);
+        font:13.5px Consolas,monospace;white-space:pre-wrap;overflow-x:auto}
+.new{display:inline-block;font:600 11px "Segoe UI",sans-serif;letter-spacing:.05em;
+     text-transform:uppercase;color:var(--live);border:1px solid var(--live);
+     border-radius:4px;padding:1px 6px;margin-left:8px;vertical-align:2px}
+.picks{display:flex;gap:5px}
+button.pick{font:500 12px "Segoe UI",sans-serif;border:1px solid var(--rule-strong);
+      background:transparent;color:var(--muted);border-radius:5px;
+      padding:5px 9px;cursor:pointer;white-space:nowrap}
+button.pick:hover{border-color:var(--accent);color:var(--ink)}
+button.pick[aria-pressed=true][data-v=ok]{background:var(--ok);border-color:var(--ok);color:#fff}
+button.pick[aria-pressed=true][data-v=warn]{background:var(--warn);border-color:var(--warn);color:#fff}
+button.pick[aria-pressed=true][data-v=na]{background:var(--na);border-color:var(--na);color:#fff}
+.note{grid-column:1/-1}
+textarea{width:100%;min-height:38px;padding:8px 10px;border-radius:5px;
+         border:1px solid var(--rule);background:var(--panel-2);color:var(--ink);
+         font:14px "Segoe UI",sans-serif;line-height:1.45;resize:vertical}
+textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;background:var(--panel)}
+
+/* Final notes — the catch-all. Prompts are listed because a blank box gets
+   a blank answer, and this section is usually the most useful in the pass. */
+.final{background:var(--panel);border:1px solid var(--rule-strong);border-radius:7px;
+       padding:16px 18px;margin-top:12px}
+.final .prompts{margin:0 0 14px;padding-left:20px;color:var(--muted);font-size:14.5px}
+.final .prompts li{margin:3px 0}
+.final label{display:block;font:600 13.5px "Segoe UI",sans-serif;margin:14px 0 5px}
+.final label:first-of-type{margin-top:0}
+
+.tools{position:fixed;right:18px;bottom:18px;display:flex;gap:8px;z-index:20}
+.tools button{font:600 13px "Segoe UI",sans-serif;padding:9px 14px;border-radius:7px;
+   border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink);
+   cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.tools button:hover{border-color:var(--accent)}
+#out{position:fixed;inset:6% 8%;background:var(--panel);border:1px solid var(--rule-strong);
+     border-radius:9px;padding:16px;z-index:30;display:none;flex-direction:column;gap:10px;
+     box-shadow:0 10px 40px rgba(0,0,0,.35)}
+#out textarea{flex:1;font:13px Consolas,monospace;min-height:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">
+    <span class="lamp" style="background:var(--live)"></span>
+    <span class="lamp" style="background:var(--busy)"></span>
+    <span class="lamp" style="background:var(--idle)"></span>
+    <span>MakerCAD v4 · C11 · local copy · nothing leaves this machine</span>
+  </div>
+  <h1>Sketch tools, snaps &amp; construction planes</h1>
+  <p class="lede">The first time a person drives the new sketch tools with a real
+  mouse. Every tool passed a headless test through the real kernel, but a headless
+  test cannot see the glyphs, feel the snapping, or notice that something is awkward —
+  that is what this pass is for. About 45 minutes. Saves to this browser as you type;
+  <b>Export</b> when you want to send results back.</p>
+</header>
+
+<div class="bar-wrap">
+  <div class="bar" id="bar"></div>
+  <div id="tally"></div>
+  <div class="saved" id="saved">ready</div>
+</div>
+
+<div id="body"></div>
+</div>
+
+<div class="tools">
+  <button onclick="exportAll()">Export findings</button>
+</div>
+
+<div id="out">
+  <b class="ui">Copy this and paste it back into the conversation</b>
+  <textarea id="outText" readonly></textarea>
+  <div style="display:flex;gap:8px">
+    <button onclick="copyOut()">Copy to clipboard</button>
+    <button onclick="document.getElementById('out').style.display='none'">Close</button>
+  </div>
+</div>
+
+<script id="seed" type="application/json">
+{}
+</script>
+
+<script>
+/* Sections: {n, t, time, note, items[]}
+   Item:     {id, t, isnew, d, e}
+     id    stable key — changing it drops that answer from a saved pass
+     t     short title
+     d     what to do (HTML allowed: <b>, <i>, <code>)
+     e     what you should see — concrete and observable, shown in the mono block.
+           Say why it behaves that way when the cause is interesting, and ask a
+           direct question here when you need one answered. */
+const ITEMS = [
+ {n:"00", t:"Getting into a sketch", time:"~3 min",
+  note:"Start MakerCAD with <code>run_shell.bat</code> in <code>makercad_v4</code>. Nothing you draw here needs saving; close without saving at the end.",
+  items:[
+   {id:"enter_sketch", t:"Enter a ground sketch", isnew:1,
+    d:"With nothing selected, press <b>K</b>.",
+    e:"The view snaps to looking straight down. A small red/green cross marks the sketch origin at the centre. The top-left panel starts \"SKETCH ground (XZ) — Line\" and lists the tool keys (L, A, R, C, P, S, F, O)."},
+   {id:"cursor_follow", t:"The cursor is tracked", isnew:1,
+    d:"Move the mouse around the empty sketch without clicking.",
+    e:"A small blue dot follows the cursor, jumping in 1 mm grid steps. Near the origin cross it becomes a green square with the word \"endpoint\" — the origin is snappable. Tell me if the dot lags behind the mouse."},
+   {id:"sketch_zoom", t:"Zoom and pan while sketching", isnew:1,
+    d:"Try the mouse wheel and a middle-button drag in sketch mode.",
+    e:"I expect NOTHING to happen: the orbit camera is switched off in sketch mode and I have not added sketch zoom yet. The view shows about 80 mm top to bottom. Is that workable, or is zoom the first thing I should add?"}
+  ]},
+ {n:"01", t:"Create tools", time:"~12 min",
+  note:"Each closed shape becomes a profile the moment its last click lands; the sketch stays open so you can keep drawing. Profiles already drawn stay on screen as thin white outlines.",
+  items:[
+   {id:"line_close", t:"Line: draw and close a polyline", isnew:1,
+    d:"Press <b>L</b>. Click four corners of a rough square, then click the first point again.",
+    e:"While drawing, a light-blue rubber band runs from the last point to the cursor with a \"12.5 mm\"-style length label. Clicking the first point closes it: toast \"Profile closed · E extrude · keep drawing\", the outline turns white, the panel says \"E = extrude last profile (1 closed)\"."},
+   {id:"line_arc", t:"Line with a 3-point arc segment", isnew:1,
+    d:"<b>L</b>, click a start and a second point. Press <b>A</b>, click where the arc should END, then move the mouse around before clicking a point ON the arc. Finish with a couple of lines back to the start.",
+    e:"After A the panel says \"→ 3-point ARC: click end, then a point on the arc\". After the end click, a live arc bends through the cursor as you move. The committed arc is smooth (a half-circle is 24 straight pieces). Is \"end first, then a point on the arc\" the order you expect? It is Fusion's order."},
+   {id:"rect_2pt", t:"2-Point Rectangle", isnew:1,
+    d:"Press <b>R</b>. Click one corner, move, click the opposite corner.",
+    e:"Between clicks a live rectangle follows the cursor. The second click closes it immediately. Panel shows \"2-Point Rectangle\" and \"Click 1 of 2\" / \"Click 2 of 2\"."},
+   {id:"rect_center", t:"Center Rectangle", isnew:1,
+    d:"Press <b>R</b> again (it cycles). Click a centre, then a corner.",
+    e:"Panel shows \"Center Rectangle\". The rectangle grows symmetrically around the first click."},
+   {id:"rect_3pt", t:"3-Point Rectangle (rotated)", isnew:1,
+    d:"Press <b>R</b> a third time. Click two points along a slanted edge, then a third to set the width.",
+    e:"Panel shows \"3-Point Rectangle\". After two clicks you see a line; the third makes a rotated rectangle whose first edge is exactly your two clicks. Clicking the third point ON the first edge's line gives a toast \"3-Point Rectangle is degenerate — try again\"."},
+   {id:"circle_modes", t:"Circles: centre, 2-point, 3-point", isnew:1,
+    d:"Press <b>C</b> and draw a centre-radius circle. Press <b>C</b> again for 2-Point (two ends of a diameter), again for 3-Point (any three points on the rim).",
+    e:"Each circle previews live and closes on its last click. They are 48-sided polygons underneath — at this zoom they should look round. The 3-point circle passes through all three clicks."},
+   {id:"polygon", t:"Polygon with side count", isnew:1,
+    d:"Press <b>P</b>. Before clicking, press <b>]</b> twice and <b>[</b> once. Click a centre, then a corner.",
+    e:"Panel shows \"Polygon (6 sides …)\", then 7, 8, 7. The preview is a regular 7-gon with a vertex exactly under the cursor (inscribed)."},
+   {id:"slot", t:"Slot", isnew:1,
+    d:"Press <b>S</b>. Click the two arc centres, then move sideways and click to set the width.",
+    e:"A rounded slot (two straight sides, two half-circle ends) centred on the line between your first two clicks; its half-width is your third click's distance from that line."},
+   {id:"esc_peel", t:"ESC and Backspace", isnew:1,
+    d:"Start a rectangle (one click), press <b>Backspace</b>. Start again, press <b>ESC</b>. Then with a half-drawn polyline press ESC, and ESC once more.",
+    e:"Backspace removes the pending click. ESC first drops pending tool clicks, then the open polyline, then leaves sketch mode — one level per press. Closed profiles are never removed by ESC."}
+  ]},
+ {n:"02", t:"Snaps and guides", time:"~8 min",
+  note:"Snaps look for something within 12 pixels of the cursor. When several things are close, the kind wins over the distance: endpoint, intersection, midpoint, center, perpendicular, nearest, then grid. The glyphs follow AutoCAD.",
+  items:[
+   {id:"snap_endpoint", t:"Endpoint", isnew:1,
+    d:"Draw a rectangle. Hover near one of its corners.",
+    e:"A green hollow square and the word \"endpoint\" sit exactly on the corner, even when a point on the edge is closer to the cursor."},
+   {id:"snap_midpoint", t:"Midpoint", isnew:1,
+    d:"Hover near the middle of a rectangle edge.",
+    e:"A green triangle and \"midpoint\". Slide along the edge away from the middle: it becomes an hourglass and \"nearest\", tracking the edge."},
+   {id:"snap_center", t:"Center", isnew:1,
+    d:"Draw a circle, hover near its centre.",
+    e:"A green circle glyph and \"center\" at the true centre — there is no visible point there, so this is the one snap you cannot eyeball."},
+   {id:"snap_intersection", t:"Intersection", isnew:1,
+    d:"Draw two overlapping rectangles. Hover where their edges cross.",
+    e:"A green X and \"intersection\" exactly on the crossing."},
+   {id:"snap_perp", t:"Perpendicular", isnew:1,
+    d:"<b>L</b>, click one point somewhere above a long horizontal edge, then hover over that edge roughly below it.",
+    e:"A green ⟂-style corner and \"perpendicular\": the point on the edge straight below your last click. Only appears when a line is being drawn."},
+   {id:"snap_hv", t:"Horizontal / vertical lock", isnew:1,
+    d:"<b>L</b>, click a point in empty space, then move the cursor roughly level with it.",
+    e:"Within about 8 pixels of level, the rubber band locks flat, an orange dashed guide runs back to the point and an orange \"H\" appears. Same with \"V\" vertically. Does it grab too eagerly or not enough?"},
+   {id:"snap_toggle", t:"Snaps off, fine grid", isnew:1,
+    d:"Press <b>G</b>, hover a corner. Press G again. Then hold <b>Ctrl</b> while moving.",
+    e:"G toasts \"Object snaps OFF (grid only)\" and corners no longer attract; G again restores them. Holding Ctrl makes the grid 0.1 mm instead of 1 mm."},
+   {id:"snap_feel", t:"Overall feel", isnew:1,
+    d:"Draw anything for a minute, just using the snaps.",
+    e:"Is 12 pixels the right grab distance? Did any snap pick the wrong thing on you? Say which, and what was nearby."}
+  ]},
+ {n:"03", t:"Modify: Fillet and Offset", time:"~6 min",
+  note:"Fillet on a closed profile works by rebuilding it, and the kernel can only do that to the newest profile that has not been extruded. That limit is deliberate for now and should say so when you hit it.",
+  items:[
+   {id:"fillet_newest", t:"Fillet a corner of the newest profile", isnew:1,
+    d:"Draw a rectangle about 20 mm across. Press <b>F</b>, then click its top-right corner.",
+    e:"Panel: \"Sketch Fillet r=2 mm ([ ] change) — click a corner\". The corner becomes a smooth quarter-circle of radius 2 mm; the other three stay sharp. A new toast \"Profile closed…\" (it was rebuilt)."},
+   {id:"fillet_radius", t:"Change the fillet radius", isnew:1,
+    d:"Press <b>]</b> four times, fillet another corner of the same rectangle.",
+    e:"Panel shows r=4 mm; the new round is visibly twice the first. A radius too big for the corner gives \"Radius … mm does not fit that corner\"."},
+   {id:"fillet_older", t:"Fillet an older profile", isnew:1,
+    d:"Draw a second shape, then try to fillet a corner of the FIRST one.",
+    e:"Toast \"Only the newest un-extruded profile can be filleted yet\", nothing changes. Is that limit going to get in your way often?"},
+   {id:"offset_out", t:"Offset outward and inward", isnew:1,
+    d:"Press <b>O</b>, click INSIDE a rectangle. Then <b>Shift</b>+click inside it again.",
+    e:"First click: a new outline 2 mm outside the original, which is kept. Shift+click: a new outline 2 mm inside. Offsetting the filleted rectangle keeps the rounded corner rounded."}
+  ]},
+ {n:"04", t:"Extrude and construction planes", time:"~12 min",
+  note:"Construction planes are orange squares 40 mm across. They live in this session only — the plane object is not saved yet, but anything sketched on it is (the sketch remembers its own plane).",
+  items:[
+   {id:"extrude_last", t:"Extrude the newest profile", isnew:1,
+    d:"In a sketch with a few profiles, press <b>E</b>, type <code>10</code>, Enter.",
+    e:"Leaves sketch mode and extrudes the NEWEST closed profile 10 mm up, with the usual live preview. Is \"newest\" the one you expected, or should E pick by clicking?"},
+   {id:"plane_offset_ground", t:"Offset Plane from the ground", isnew:1,
+    d:"In orbit mode press <b>X</b> (clear selection), <b>S</b>, type <code>offset</code>, pick \"Construct: Offset Plane (from plane / face / ground)\". Type <code>15</code>, Enter.",
+    e:"Title \"OFFSET PLANE from ground\". A pale blue square previews 15 mm above the ground and moves as you type. Enter leaves a yellow (selected) square: toast \"✓ Offset Plane 1 — selected · K sketches on it\"."},
+   {id:"plane_sketch", t:"Sketch on the plane and extrude", isnew:1,
+    d:"With the plane selected press <b>K</b>, draw a circle, press <b>E</b>, <code>10</code>, Enter. Orbit around.",
+    e:"Toast \"Sketching on Plane 1\". The cylinder floats with its bottom 15 mm above the ground. Which way did it grow — up away from the ground, or down into it? I have only checked its volume, not its direction."},
+   {id:"plane_pick", t:"Select a plane by clicking", isnew:1,
+    d:"Clear the selection (<b>X</b>), then click on the orange square where no body is in front of it.",
+    e:"Square turns yellow, toast \"Plane 1 selected · K sketch on it…\". A body in front of the plane wins the click — planes are only picked when the ray hits nothing else."},
+   {id:"plane_angle", t:"Plane At Angle", isnew:1,
+    d:"With Plane 1 selected: <b>S</b>, \"Construct: Plane At Angle\", type <code>90</code>, Enter.",
+    e:"A second square standing vertical, hinged on Plane 1's centre. Which axis it hinges on is Plane 1's u axis — there is no visible red axis yet, so say whether the hinge direction surprised you."},
+   {id:"plane_face", t:"Offset Plane from a body face", isnew:1,
+    d:"Click the flat top face of a body, then <b>S</b> → Offset Plane, <code>5</code>.",
+    e:"Title \"OFFSET PLANE from face N\"; the square appears 5 mm above that face, centred on it, parallel to it."}
+  ]},
+ {n:"05", t:"Your call", time:"~3 min",
+  note:"Decisions only you can make. Mark OK if you agree with the default, Needs work if not, and say what you want in the note.",
+  items:[
+   {id:"call_mirror", t:"Sketch Mirror and Patterns",
+    d:"Doc 62 (Aug 18) declined sketch mirror and rectangular/circular pattern as overkill for bracket-class parts. Your 9-29 note says to slowly replicate ALL Fusion tools.",
+    e:"Default: keep them declined until constraints land. OK = keep declined for now; Needs work = build them, and say which first."},
+   {id:"call_next", t:"What comes next",
+    d:"Ranked next steps: (1) sketch zoom/pan, (2) constraints + dimensions (blue/black), (3) true arcs in the kernel so cylinders are not 48-sided, (4) save construction planes in the document.",
+    e:"OK = that order. Otherwise write your order in the note."},
+   {id:"call_keys", t:"Key letters",
+    d:"Sketch keys: L line, A arc, R rectangles, C circles, P polygon, S slot, F fillet, O offset, G snaps. S is the command palette in orbit mode but Slot inside a sketch.",
+    e:"Anything clash with your muscle memory from Fusion or elsewhere?"}
+  ]}
+];
+
+/* Final notes prompts — edit freely, but keep them as questions. */
+const FINAL = [
+  {id:"f_obs",   label:"Observations",
+   ph:"Anything at all.",
+   prompts:["Anything you noticed that none of the questions above asked about?",
+            "Anything that felt slow, awkward, confusing, or ugly?",
+            "Anything that worked better than you expected?",
+            "Did you do anything the instructions did not cover?"]},
+  {id:"f_first", label:"If you could only fix one thing", ph:"The one that mattered most."},
+  {id:"f_env",   label:"Anything about your setup worth knowing",
+   ph:"Browser, machine, screen size, what else was running."}
+];
+
+const KEY = "makercad-c11-sketch-test-pass-v1";
+const ALL = ITEMS.flatMap(s => s.items.map(i => i.id));
+let state = {};
+try {
+  const saved = localStorage.getItem(KEY);
+  state = saved ? JSON.parse(saved)
+                : JSON.parse(document.getElementById("seed").textContent);
+} catch (e) {
+  try { state = JSON.parse(document.getElementById("seed").textContent); }
+  catch (e2) { state = {}; }
+}
+
+function esc(s){ return String(s==null?"":s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function save(msg){
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    document.getElementById("saved").textContent =
+      msg || ("saved " + new Date().toLocaleTimeString());
+  } catch (e) {
+    document.getElementById("saved").textContent =
+      "NOT SAVED - browser storage blocked. Use Export before closing.";
+  }
+}
+
+function render(){
+  let h = "";
+  for (const sec of ITEMS){
+    h += '<section><div class="shead"><span class="snum">' + sec.n + '</span>'
+       + '<h2>' + esc(sec.t) + '</h2>'
+       + (sec.time ? '<span class="stime">' + esc(sec.time) + '</span>' : '')
+       + '</div>'
+       + (sec.note ? '<p class="snote">' + sec.note + '</p>' : '');
+    for (const it of sec.items){
+      const st = state[it.id] || {};
+      h += '<div class="item" data-s="' + esc(st.s || "") + '">'
+         + '<div class="what"><b>' + esc(it.t)
+         + (it.isnew ? '<span class="new">new</span>' : '') + '</b>'
+         + (it.d ? '<p>' + it.d + '</p>' : '')
+         + (it.e ? '<div class="expect">' + esc(it.e) + '</div>' : '')
+         + '</div><div class="picks">'
+         + ["ok","warn","na"].map(v =>
+             '<button class="pick" data-v="' + v + '" data-id="' + it.id + '" '
+             + 'aria-pressed="' + (st.s === v) + '">'
+             + (v === "ok" ? "OK" : v === "warn" ? "Needs work" : "n/a")
+             + '</button>').join("")
+         + '</div><div class="note"><textarea data-id="' + it.id
+         + '" placeholder="What happened?">' + esc(st.n || "") + '</textarea></div></div>';
+    }
+    h += '</section>';
+  }
+
+  h += '<section><div class="shead"><span class="snum">' + String(ITEMS.length).padStart(2,"0")
+     + '</span><h2>Final notes</h2></div>'
+     + '<p class="snote">The questions above cannot cover everything. This is where the '
+     + 'rest goes — it is usually the most useful part of the pass.</p><div class="final">';
+  for (const f of FINAL){
+    const st = state[f.id] || {};
+    if (f.prompts) h += '<ul class="prompts">' + f.prompts.map(p => '<li>' + esc(p) + '</li>').join("") + '</ul>';
+    h += '<label for="' + f.id + '">' + esc(f.label) + '</label>'
+       + '<textarea id="' + f.id + '" data-id="' + f.id + '" placeholder="' + esc(f.ph || "")
+       + '">' + esc(st.n || "") + '</textarea>';
+  }
+  h += '</div></section>';
+
+  document.getElementById("body").innerHTML = h;
+  for (const ta of document.querySelectorAll("textarea[data-id]")) grow(ta);
+  paint();
+}
+
+function grow(ta){ ta.style.height="auto"; ta.style.height=Math.max(38,ta.scrollHeight)+"px"; }
+
+function paint(){
+  let ok=0, warn=0, na=0;
+  for (const id of ALL){
+    const v = (state[id]||{}).s;
+    if (v==="ok") ok++; else if (v==="warn") warn++; else if (v==="na") na++;
+  }
+  const total = ALL.length, pc = v => (v/total*100).toFixed(2)+"%";
+  document.getElementById("bar").innerHTML =
+      '<span style="width:'+pc(ok)+';background:var(--ok)"></span>'
+    + '<span style="width:'+pc(warn)+';background:var(--warn)"></span>'
+    + '<span style="width:'+pc(na)+';background:var(--na)"></span>';
+  document.getElementById("tally").innerHTML =
+      '<span class="tally"><i class="dot" style="background:var(--ok)"></i>'+ok+' OK</span> '
+    + '<span class="tally"><i class="dot" style="background:var(--warn)"></i>'+warn+' need work</span> '
+    + '<span class="tally">'+(ok+warn+na)+' / '+total+'</span>';
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("button.pick");
+  if (!b) return;
+  const id = b.dataset.id, v = b.dataset.v;
+  const cur = state[id] || {};
+  cur.s = (cur.s === v) ? "" : v;
+  state[id] = cur;
+  const row = b.closest(".item");
+  row.dataset.s = cur.s;
+  for (const p of row.querySelectorAll("button.pick"))
+    p.setAttribute("aria-pressed", String(p.dataset.v === cur.s));
+  paint(); save();
+});
+
+// Save on every keystroke. A hosted version debounced and lost typing when it
+// reconnected; there is no network here, so there is no reason to wait.
+document.addEventListener("input", e => {
+  const ta = e.target.closest("textarea[data-id]");
+  if (!ta) return;
+  const cur = state[ta.dataset.id] || {};
+  cur.n = ta.value;
+  state[ta.dataset.id] = cur;
+  grow(ta); save();
+});
+window.addEventListener("beforeunload", () => save());
+
+function exportAll(){
+  const lines = ["MakerCAD C11 sketch tools test pass — " + new Date().toLocaleString(), ""];
+  let ok=0, warn=0, na=0;
+  for (const id of ALL){
+    const v = (state[id]||{}).s;
+    if (v==="ok") ok++; else if (v==="warn") warn++; else if (v==="na") na++;
+  }
+  lines.push(ok + " OK · " + warn + " need work · " + na + " n/a · "
+             + (ok+warn+na) + " of " + ALL.length + " answered", "");
+  for (const sec of ITEMS){
+    const rows = sec.items.filter(i => state[i.id] &&
+                 ((state[i.id].s) || (state[i.id].n || "").trim()));
+    if (!rows.length) continue;
+    lines.push("## " + sec.t);
+    for (const it of rows){
+      const st = state[it.id];
+      lines.push("- [" + (st.s || "—") + "] " + it.t);
+      if ((st.n || "").trim()) lines.push("      " + st.n.trim().replace(/\n+/g, " "));
+    }
+    lines.push("");
+  }
+  // Final notes always export, even when every point was skipped — often the
+  // only thing in the pass worth reading.
+  const wrote = FINAL.filter(f => ((state[f.id]||{}).n || "").trim());
+  lines.push("## Final notes");
+  if (!wrote.length) lines.push("(none)");
+  for (const f of wrote) lines.push("- " + f.label + ": " + state[f.id].n.trim().replace(/\n+/g, " "));
+  lines.push("");
+
+  const box = document.getElementById("out");
+  document.getElementById("outText").value = lines.join("\n");
+  box.style.display = "flex";
+}
+
+function copyOut(){
+  const ta = document.getElementById("outText");
+  ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  if (navigator.clipboard) navigator.clipboard.writeText(ta.value).catch(()=>{});
+}
+
+render();
+save("loaded — your previous answers are carried over");
+</script>
+</body>
+</html>

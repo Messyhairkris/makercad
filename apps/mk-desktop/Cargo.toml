@@ -1,0 +1,62 @@
+[package]
+name = "mk-desktop"
+description = "MakerCAD for Windows, Linux and macOS: our own shell around SolidCraft's kernel and viewport."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "makercad"
+path = "src/main.rs"
+
+[lib]
+doctest = false
+
+[dependencies]
+mk-units = { path = "../../crates/mk-units" }
+# Sancho's figure (D27): read and posed once, standing beside the design.
+mk-sancho = { path = "../../crates/mk-sancho" }
+# The same eframe features as SolidCraft's app, so the compiled crates are shared.
+eframe = { version = "0.37", default-features = false, features = [
+    "persistence",
+    "default_fonts",
+    "wgpu",
+    "accesskit",
+    "wayland",
+    "x11",
+    "links",
+    "clipboard",
+] }
+egui = { version = "0.37", features = ["default_fonts"] }
+# Icons are SVG (doc 18), rasterised at runtime; the same resvg SolidCraft's engine uses.
+resvg = { version = "0.50", default-features = false }
+# `--screenshot` writes the window as a PNG.
+image = { version = "0.25", default-features = false, features = ["png"] }
+# Engine commands take and return JSON.
+serde_json = "1"
+
+# SolidCraft's open crates (decision D25: path dependencies into the pinned checkout), the same
+# ones its app links apart from the brand-licensed four (ui-egui, ui-kit, look, theme) and the
+# 3Dconnexion client. The engine gets the app's features. The first build compiles all of them
+# (see the note in the root Cargo.toml); `python tools/reuse_check.py` stops a later build that
+# would recompile solidcore or the engine and says why.
+solidcraft-engine = { path = "../../third_party/solidcraft/crates/engine", features = ["raytrace-cpu", "bundled-render-library", "profile"] }
+solidcraft-doc = { path = "../../third_party/solidcraft/crates/doc" }
+solidcraft-kernel = { path = "../../third_party/solidcraft/crates/kernel" }
+solidcraft-gpu = { path = "../../third_party/solidcraft/crates/gpu" }
+solidcraft-viewport = { path = "../../third_party/solidcraft/crates/viewport" }
+solidcraft-viewport-gpu = { path = "../../third_party/solidcraft/crates/viewport-gpu" }
+solidcraft-viewport-egui = { path = "../../third_party/solidcraft/crates/viewport-egui" }
+solidcraft-control = { path = "../../third_party/solidcraft/crates/control" }
+solidcraft-control-egui = { path = "../../third_party/solidcraft/crates/control-egui" }
+solidcraft-ui-registry = { path = "../../third_party/solidcraft/crates/ui-registry" }
+solidcraft-color = { path = "../../third_party/solidcraft/crates/color" }
+solidcraft-ui-text = { path = "../../third_party/solidcraft/crates/ui-text" }
+solidcraft-space-mouse = { path = "../../third_party/solidcraft/crates/space-mouse", features = ["serde"] }
+solidcore-record = { path = "../../third_party/solidcraft/solidcore/crates/solidcore-record" }
+solidcore-ops = { path = "../../third_party/solidcraft/solidcore/crates/solidcore-ops" }
+solidcore-tess = { path = "../../third_party/solidcraft/solidcore/crates/solidcore-tess" }
+
+# No egui_kittest: SolidCraft vendors it but never builds it, and at the pinned rev it no longer
+# compiles against SolidCraft's patched egui-wgpu. Screenshots come from the real window instead.
