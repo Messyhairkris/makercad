@@ -84,22 +84,10 @@ impl ScaleFigure {
         })
     }
 
-    /// Where he stands beside a design whose box is `design` (min, max), or beside the origin
-    /// for an empty design: on its right, a step away, on the ground (z = 0) or at the design's
-    /// lowest point if that is lower.
-    pub fn spot(&self, design: Option<(Vec3, Vec3)>) -> Vec3 {
-        match design {
-            Some((min, max)) => {
-                let span = (max.x - min.x).max(max.y - min.y).max(0.0);
-                let gap = 300.0 + 0.1 * span;
-                Vec3::new(
-                    max.x + gap + self.half_width_mm,
-                    (min.y + max.y) * 0.5,
-                    min.z.min(0.0),
-                )
-            }
-            None => Vec3::new(300.0 + self.half_width_mm, 0.0, 0.0),
-        }
+    /// Half the larger of his width and depth (mm): how much room he takes on each side of where
+    /// he stands ([`crate::stage::plan`] places him).
+    pub fn half_width_mm(&self) -> f64 {
+        self.half_width_mm
     }
 
     /// The box he fills standing at `spot`.
@@ -191,20 +179,23 @@ mod tests {
 
     #[test]
     fn he_stands_beside_the_design_not_in_it() {
+        // A dresser (floor stage) and a plate (bench stage): his box never overlaps the design.
         let s = sancho();
-        let design = (Vec3::new(-100.0, -50.0, 0.0), Vec3::new(100.0, 50.0, 20.0));
-        let spot = s.spot(Some(design));
-        let b = s.bounds_at(spot);
-        assert!(b.min.x > design.1.x + 250.0, "a step to the right: {b:?}");
-        assert_eq!(spot.z, 0.0);
+        for design in [
+            (Vec3::new(0.0, 0.0, 0.0), Vec3::new(812.0, 450.0, 1200.0)),
+            (Vec3::new(-100.0, -50.0, 0.0), Vec3::new(100.0, 50.0, 20.0)),
+        ] {
+            let stage = crate::stage::plan(Some(design), s.half_width_mm());
+            let b = s.bounds_at(stage.sancho);
+            assert!(b.min.x > design.1.x + 200.0, "a step to the right: {b:?}");
+            assert_eq!(stage.sancho.z, stage.floor_z);
+        }
         // A design below the ground: he stands at its lowest point.
-        let sunk = s.spot(Some((
-            Vec3::new(0.0, 0.0, -400.0),
-            Vec3::new(10.0, 10.0, 0.0),
-        )));
-        assert_eq!(sunk.z, -400.0);
-        // An empty design: beside the origin.
-        assert!(s.spot(None).x > 300.0);
+        let sunk = (Vec3::new(0.0, 0.0, -400.0), Vec3::new(900.0, 10.0, 0.0));
+        assert_eq!(
+            crate::stage::plan(Some(sunk), s.half_width_mm()).sancho.z,
+            -400.0
+        );
     }
 
     #[test]

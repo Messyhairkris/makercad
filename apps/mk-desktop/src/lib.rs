@@ -9,6 +9,7 @@ mod icon_data;
 pub mod icons;
 pub mod sancho;
 pub mod scale_figure;
+pub mod stage;
 pub mod theme;
 
 use std::time::{Duration, Instant};
@@ -40,6 +41,46 @@ pub struct Launch {
     pub sample: bool,
     /// With `sample`: frame the plate alone, not the plate and Sancho (`--fit`, for screenshots).
     pub fit: bool,
+    /// With `sample`: turn the view for this many seconds, print the frame times and close
+    /// (`--spin`, for measuring).
+    pub spin: Option<f64>,
+}
+
+/// What `--spin` measured: the time of each frame (egui's input time), once the view has settled.
+#[derive(Default)]
+struct Spin {
+    times: Vec<f64>,
+    reported: bool,
+}
+
+impl Spin {
+    /// `"N frames in S s: mean X ms, median Y ms, p95 Z ms (F FPS)"` over the intervals.
+    fn report(&self) -> String {
+        let mut gaps: Vec<f64> = self
+            .times
+            .windows(2)
+            .map(|w| (w[1] - w[0]) * 1000.0)
+            .collect();
+        if gaps.is_empty() {
+            return "no frames measured".into();
+        }
+        gaps.sort_by(f64::total_cmp);
+        let n = gaps.len();
+        let mean = gaps.iter().sum::<f64>() / n as f64;
+        let at = |q: f64| {
+            gaps.get(((n as f64 - 1.0) * q).round() as usize)
+                .copied()
+                .unwrap_or(mean)
+        };
+        let span =
+            self.times.last().copied().unwrap_or(0.0) - self.times.first().copied().unwrap_or(0.0);
+        format!(
+            "{n} frames in {span:.1} s: mean {mean:.1} ms, median {:.1} ms, p95 {:.1} ms ({:.0} FPS)",
+            at(0.5),
+            at(0.95),
+            1000.0 / mean
+        )
+    }
 }
 
 /// Which screen the window shows.
@@ -69,6 +110,7 @@ pub struct MakerApp {
     render_state: Option<eframe::egui_wgpu::RenderState>,
     screen: Screen,
     design: Option<design::Design>,
+    spin: Spin,
 }
 
 /// Frames drawn before `--screenshot` takes its picture, so layout and icons have settled.
@@ -107,6 +149,7 @@ impl MakerApp {
             render_state: cc.wgpu_render_state.clone(),
             screen: Screen::Home,
             design: None,
+            spin: Spin::default(),
             launch,
         };
         if app.launch.demo {
@@ -213,7 +256,7 @@ impl MakerApp {
         if let (Screen::Design, Some(d)) = (self.screen, &self.design) {
             parts.push(format!("built in {:.0} ms", d.build_ms));
             if let Some(ms) = d.last_draw_ms {
-                parts.push(format!("view {:.0} ms ({})", ms, d.renderer));
+                parts.push(format!("scene {:.0} ms ({})", ms, d.renderer));
             }
         }
         parts.join("  \u{b7}  ")
@@ -455,6 +498,22 @@ impl eframe::App for MakerApp {
             }
             ctx.request_repaint();
         }
+        // `--spin SECONDS`: turn the view a little every frame, then report the frame times.
+        if let (Some(seconds), Screen::Design) = (self.launch.spin, self.screen) {
+            if self.frames > SCREENSHOT_AFTER_FRAMES && !self.spin.reported {
+                if let Some(design) = self.design.as_mut() {
+                    design.turn(4.0);
+                }
+                self.spin.times.push(now);
+                let first = self.spin.times.first().copied().unwrap_or(now);
+                if now - first >= seconds {
+                    eprintln!("makercad: spin: {}", self.spin.report());
+                    self.spin.reported = true;
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                }
+            }
+            ctx.request_repaint();
+        }
 
         let palette = self.look.palette();
         egui::Panel::bottom("status")
@@ -525,5 +584,27 @@ impl eframe::App for MakerApp {
             return;
         }
         storage.set_string(LOOK_KEY, self.look.key().to_string());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Spin;
+
+    #[test]
+    fn the_spin_report_reads_the_frame_intervals() {
+        // 11 frames 20 ms apart, then one slow frame of 100 ms.
+        let mut times: Vec<f64> = (0..11).map(|i| f64::from(i) * 0.020).collect();
+        times.push(0.300);
+        let report = Spin {
+            times,
+            reported: false,
+        }
+        .report();
+        assert!(report.starts_with("11 frames in 0.3 s"), "{report}");
+        assert!(report.contains("median 20.0 ms"), "{report}");
+        assert!(report.contains("p95 100.0 ms"), "{report}");
+        assert!(report.contains("(37 FPS)"), "{report}");
+        assert_eq!(Spin::default().report(), "no frames measured");
     }
 }

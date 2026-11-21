@@ -1,15 +1,17 @@
 //! `makercad`: starts the desktop app.
 //!
 //! ```text
-//! makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit]] [--windowed]
+//! makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS]] [--windowed]
 //!          [--screenshot PATH] [--look daydream|pastel|night-workshop] [--size WxH]
 //! ```
 //!
 //! `--backend` picks the graphics backend for this start only; `--retest` forgets the backend
 //! that worked last time (see `graphics.rs`); `--demo` shows the design canvas's sample
 //! projects; `--sample` opens SolidCraft's sample plate in the Design workspace (`--fit`: framed
-//! on the plate alone, not the plate and Sancho); `--windowed` does not maximize. `--screenshot` draws the window, writes it as a PNG and closes (for agents
-//! and reviews: AGENTS.md rule 10); it implies `--windowed`.
+//! on the plate alone, not the plate and Sancho; `--spin`: turn the view for SECONDS, print the
+//! frame times and close); `--windowed` does not maximize. `--screenshot` draws the window,
+//! writes it as a PNG and closes (for agents and reviews: AGENTS.md rule 10); it implies
+//! `--windowed`.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
@@ -25,13 +27,14 @@ struct Args {
     demo: bool,
     sample: bool,
     fit: bool,
+    spin: Option<f64>,
     windowed: bool,
     screenshot: Option<PathBuf>,
     look: Option<Look>,
     size: [f32; 2],
 }
 
-const USAGE: &str = "usage: makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit]] [--windowed] \
+const USAGE: &str = "usage: makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS]] [--windowed] \
                      [--screenshot PATH] [--look daydream|pastel|night-workshop] [--size WxH]";
 
 fn parse_args() -> Result<Args, String> {
@@ -41,6 +44,7 @@ fn parse_args() -> Result<Args, String> {
         demo: false,
         sample: false,
         fit: false,
+        spin: None,
         windowed: false,
         screenshot: None,
         look: None,
@@ -58,6 +62,14 @@ fn parse_args() -> Result<Args, String> {
             "--demo" => a.demo = true,
             "--sample" => a.sample = true,
             "--fit" => a.fit = true,
+            "--spin" => {
+                let v = value()?;
+                let s: f64 = v.parse().map_err(|_| format!("--spin SECONDS, not {v}"))?;
+                if !(0.5..=120.0).contains(&s) {
+                    return Err(format!("--spin {v} is out of range (0.5 to 120 seconds)"));
+                }
+                a.spin = Some(s);
+            }
             "--windowed" => a.windowed = true,
             "--screenshot" => a.screenshot = Some(PathBuf::from(value()?)),
             "--look" => {
@@ -126,6 +138,7 @@ fn main() {
         look: args.look,
         sample: args.sample,
         fit: args.fit,
+        spin: args.spin,
     };
     let result = eframe::run_native(
         "MakerCAD",

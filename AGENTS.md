@@ -86,6 +86,8 @@ PNG and closes) and put the picture in the PR. A UI change nobody has looked at 
 | `tools/blender/export_bodykun.py` | rebuilds BodyKun (CC0) as Sancho's placeholder glTF: 71 deform bones, one wood body, 1.68 m, Wave and Grip |
 | `tools/blender/sancho_page.template.html` | the phone page for Sancho (`@@GLB@@` base64, `@@SIZE@@`); `#check=CLIP@SECONDS[,hand]` pins a pose for screenshots |
 | `tools/brand_free.ps1` | fails if a SolidCraft brand crate is in our dependency graph |
+| `tools/figcraft_read.py` | prints what a `.figcraft` file holds: pages and frames, text, comment threads, annotations, prototype links (D29) |
+| `docs/design/ui-v2/make_screens.py` | draws the UI pass 2 screens as editable SVG (and PNG) for FigCraft, with MakerCAD's own render in the view |
 | `tools/package_windows.ps1` | zips the release `makercad.exe` with READ-ME-FIRST.txt, the licences and ATTRIBUTION.md into `dist/` (the cloud build's test build) |
 | `tools/icon_lint.py` | doc 18's SVG rules for an icon-set module (also the Crew's hidden tests) |
 | `tools/icon_sheet.py` | a contact sheet of icon sets at 16, 32 and 64 px for a person to judge |

@@ -125,7 +125,7 @@ The scale class sets grid, units display, camera defaults, snapping increments, 
 | `room` | 0.5–10 m | The Space (room shell or a default room box 3.6 × 3 × 2.5 m) | True scale, 1.68 m (5′6″), standing in the room | 100 mm / 1″ snaps, 1 m / 1 ft major |
 | `furniture` | 0.3–2.5 m | A floor plane with a rug-sized patch | True scale beside the piece | 10 mm / ¼″ |
 | `body` | 0.1–1 m, worn or carried | A mannequin or an "accessory layout" mat | True scale; can "wear" the design (backpack on Sancho's back) | 5 mm / ⅛″ |
-| `bench` | 10–500 mm | A workbench top (cutting mat texture, 600 × 450 mm) | **Giant**: only his hands and face at the bench edge, looking down. A size cue that makes "tiny" visible | 1 mm / 1/32″ |
+| `bench` | 10–500 mm | A **workbench at standing height** (900 mm): the design's floor plane is the bench top, a cutting mat with a 10 mm grid lies under the part, at least 600 × 450 mm | **True scale, standing on the room floor beside the bench**, his feet a bench height below the part (Kris, 2026-11-21; replaces the earlier "giant" Sancho) | 1 mm / 1/32″ |
 | `macro` | < 10 mm | A cutting mat with mm grid | A giant eye with a magnifying glass | 0.1 mm |
 
 - The class can be switched any time (View ▸ Stage). Multi-design projects can have different classes per design: the sharpener is `bench`, its box is `bench`, and a display stand might be `furniture`.
