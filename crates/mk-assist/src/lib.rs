@@ -17,8 +17,13 @@
 //! `memory`: Sancho's relationship memory (doc 07 section 7.9): days with a session, streaks,
 //! completed projects, favourite materials, override counts, an opt-out that keeps nothing, and
 //! the greeting's facts (the Voice layer words them).
+//!
+//! `rules_tools`: the tools rule pack (doc 07 section 7.5): a step needs a capability no usable
+//! tool supplies (a wishlist tool does not count), one only at a makerspace or by rental, a tool
+//! not accurate enough for the step's tolerance, and a loud tool planned in quiet hours.
 
 pub mod findings;
 pub mod interpret;
 pub mod memory;
 pub mod rules_core;
+pub mod rules_tools;

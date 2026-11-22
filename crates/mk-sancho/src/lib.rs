@@ -15,9 +15,15 @@
 //! Sancho is a scale figure first (decision D27). [`figure`] reads any skinned humanoid glTF,
 //! such as the placeholder [`PLACEHOLDER_GLB`] (BodyKun, D26), and poses it on the CPU: still,
 //! posable, standing beside the design.
+//!
+//! [`rig`] is the light rig's math for when he moves (doc 07 section 7.3.1; the Crew's campaign
+//! mk-core-14): look-at with clamped yaw and pitch split between neck and head, point-at as a
+//! two-bone IK, clip crossfades, the event-to-clip table, what each hardware tier runs, walking
+//! and height scaling. f64 throughout; no glTF or GPU here.
 
 pub mod figure;
 mod glb;
+pub mod rig;
 mod shapes;
 
 pub use glb::write_glb;
