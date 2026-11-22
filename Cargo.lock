@@ -3338,6 +3338,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "mk-assist"
+version = "0.1.0"
+
+[[package]]
 name = "mk-desktop"
 version = "0.1.0"
 dependencies = [
@@ -3374,7 +3378,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mk-log"
+version = "0.1.0"
+
+[[package]]
 name = "mk-nest"
+version = "0.1.0"
+
+[[package]]
+name = "mk-probe"
+version = "0.1.0"
+
+[[package]]
+name = "mk-project"
 version = "0.1.0"
 
 [[package]]

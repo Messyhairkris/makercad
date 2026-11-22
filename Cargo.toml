@@ -3,7 +3,7 @@
 # excluded here.
 [workspace]
 resolver = "2"
-members = ["crates/mk-units", "crates/mk-nest", "crates/mk-inventory", "crates/mk-sancho", "apps/mk-desktop"]
+members = ["crates/mk-units", "crates/mk-nest", "crates/mk-inventory", "crates/mk-sancho", "crates/mk-project", "crates/mk-log", "crates/mk-assist", "crates/mk-probe", "apps/mk-desktop"]
 exclude = ["third_party"]
 
 [workspace.package]

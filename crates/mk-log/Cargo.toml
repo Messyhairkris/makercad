@@ -1,0 +1,12 @@
+[package]
+name = "mk-log"
+description = "The project journal and the new-project questions: records, edits that supersede, the Quest."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]

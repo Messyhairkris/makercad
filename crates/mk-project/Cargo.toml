@@ -1,0 +1,12 @@
+[package]
+name = "mk-project"
+description = "The .maker project file: what each entry is, whether its name is safe, and the hash index."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]

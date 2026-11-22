@@ -46,7 +46,7 @@ jobs:
           workspaces: ". -> third_party/solidcraft/target"
       - name: Format
         # Our crates only: `--all` would also check SolidCraft's path crates.
-        run: cargo fmt -p mk-units -p mk-nest -p mk-inventory -p mk-sancho -p mk-desktop --check
+        run: cargo fmt -p mk-units -p mk-nest -p mk-inventory -p mk-sancho -p mk-project -p mk-log -p mk-assist -p mk-probe -p mk-desktop --check
       - name: Brand-free (AGENTS.md rule 3)
         shell: pwsh
         run: ./tools/brand_free.ps1

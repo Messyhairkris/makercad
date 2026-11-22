@@ -1,0 +1,12 @@
+[package]
+name = "mk-assist"
+description = "Sancho's rules: the project interpreter reads what the maker wrote and sets up the project, each choice with its why."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
