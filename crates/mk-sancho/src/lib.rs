@@ -26,6 +26,14 @@
 //! names and a built-in Rigify-to-Mixamo table, and an imported model checked against facts the
 //! app measured (bones, influences, clips, rest height, triangles).
 
+//!
+//! [`clips`] is Sancho's animation clips as data and the math that plays them (doc 07 section
+//! 7.3.1; campaign mk-core-22): one rotation track per bone as unit quaternions, sampling with
+//! normalized lerp the shorter way round, looping or holding the last key, blending two poses by
+//! a crossfade weight (from `rig::fade_weight`), validation with exact errors, and baking to
+//! whole frames for the potato tier.
+
+pub mod clips;
 pub mod figure;
 mod glb;
 pub mod persona;
