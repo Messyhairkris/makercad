@@ -5,6 +5,11 @@
 //!
 //! `quest`: the new-project questions as data (doc 05 section 5.2): the steps, answers checked
 //! by kind, skipping that moves the flow on, and the facts the app reads from the answers.
+//!
+//! `interview`: the session-end interview (doc 07 section 7.7): when it is offered, the six
+//! questions, the draft of what was done from the command log, cause chips, skippable answers,
+//! and the journal bodies it becomes (a session record, and an open page when one was skipped).
 
+pub mod interview;
 pub mod journal;
 pub mod quest;
