@@ -95,6 +95,16 @@ jobs:
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
         run: cargo build --release --locked -p mk-desktop --bin makercad --target x86_64-pc-windows-msvc
+      - name: Probe smoke test (the child mode on the runner's adapter; never fails the build)
+        # Each backend is tried in a child process (doc 12 section 12.2); this shows what the
+        # exe's child says on a machine with no real GPU (D3D12 WARP, if anything).
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          foreach ($b in 'dx12', 'gl') {
+            $p = Start-Process ./target/x86_64-pc-windows-msvc/release/makercad.exe -ArgumentList '--probe-backend', $b -NoNewWindow -PassThru -RedirectStandardOutput "probe-$b.txt"
+            if (-not $p.WaitForExit(60000)) { $p.Kill(); "$b`: timed out" } else { "$b`: exit $($p.ExitCode): $(Get-Content "probe-$b.txt" -Raw)" }
+          }
       - name: Package
         shell: pwsh
         run: ./tools/package_windows.ps1 -Build "${{ github.run_number }}" -Commit "${{ github.sha }}"

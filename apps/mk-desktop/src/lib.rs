@@ -13,6 +13,7 @@ pub mod graphics;
 pub mod home;
 mod icon_data;
 pub mod icons;
+pub mod probe;
 pub mod project_file;
 pub mod sancho;
 pub mod scale_figure;

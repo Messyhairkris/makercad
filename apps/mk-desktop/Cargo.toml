@@ -19,6 +19,10 @@ mk-units = { path = "../../crates/mk-units" }
 mk-sancho = { path = "../../crates/mk-sancho" }
 # The .maker project file (doc 03 section 3.6): container, manifest, intent, safe saving.
 mk-project = { path = "../../crates/mk-project" }
+# The hardware profile the capability probe writes (doc 12 section 12.2).
+mk-probe = { path = "../../crates/mk-probe" }
+# The probe's child blocks on wgpu's adapter and device requests (eframe uses the same crate).
+pollster = "1"
 # The same eframe features as SolidCraft's app, so the compiled crates are shared.
 eframe = { version = "0.37", default-features = false, features = [
     "persistence",

@@ -44,6 +44,8 @@ pub enum Source {
     Remembered,
     /// The last start on the previous backend never drew a frame.
     FellBack,
+    /// Nothing remembered, but the capability probe's profile names a backend that initialised.
+    Probed,
     /// Nothing known yet: the first backend in [`ORDER`].
     FirstTry,
 }
@@ -77,15 +79,32 @@ impl Choice {
             (Source::Argument, _) => format!("{} (--backend)", self.backend),
             (Source::Environment, _) => format!("{} ({BACKEND_ENV})", self.backend),
             (Source::Remembered, _) => format!("{} (worked last time)", self.backend),
+            (Source::Probed, _) => format!("{} (the probe's choice)", self.backend),
             _ => self.backend.clone(),
         }
     }
 }
 
-/// Decides the backend from the argument, the environment and the remembered `memory` text.
-/// Pure, so it can be tested; [`choose`] does the file work around it.
-pub fn decide(argument: Option<&str>, environment: Option<&str>, memory: Option<&str>) -> Choice {
+/// Decides the backend from the argument, the environment, the remembered `memory` text and the
+/// capability probe's backend (`probed`, used only when nothing is remembered). Pure, so it can
+/// be tested; [`choose`] does the file work around it.
+pub fn decide(
+    argument: Option<&str>,
+    environment: Option<&str>,
+    memory: Option<&str>,
+    probed: Option<&str>,
+) -> Choice {
     let clean = |s: &str| s.trim().to_ascii_lowercase();
+    let from_probe = || {
+        probed
+            .map(clean)
+            .filter(|p| ORDER.contains(&p.as_str()))
+            .map(|p| Choice {
+                backend: p,
+                source: Source::Probed,
+                failed: None,
+            })
+    };
     if let Some(a) = argument.map(clean).filter(|a| !a.is_empty()) {
         return Choice {
             backend: a,
@@ -102,11 +121,11 @@ pub fn decide(argument: Option<&str>, environment: Option<&str>, memory: Option<
     }
     let first = ORDER.first().copied().unwrap_or("gl").to_string();
     let Some(memory) = memory else {
-        return Choice {
+        return from_probe().unwrap_or(Choice {
             backend: first,
             source: Source::FirstTry,
             failed: None,
-        };
+        });
     };
     let mut words = memory.split_whitespace();
     match (words.next(), words.next().map(clean)) {
@@ -129,11 +148,11 @@ pub fn decide(argument: Option<&str>, environment: Option<&str>, memory: Option<
                 failed: Some(b),
             }
         }
-        _ => Choice {
+        _ => from_probe().unwrap_or(Choice {
             backend: first,
             source: Source::FirstTry,
             failed: None,
-        },
+        }),
     }
 }
 
@@ -159,7 +178,8 @@ pub fn choose(argument: Option<&str>, retest: bool) -> Choice {
     }
     let memory = path.as_ref().and_then(|p| std::fs::read_to_string(p).ok());
     let environment = std::env::var(BACKEND_ENV).ok();
-    let choice = decide(argument, environment.as_deref(), memory.as_deref());
+    let probed = crate::probe::load().map(|p| crate::probe::backend_key(p.backend));
+    let choice = decide(argument, environment.as_deref(), memory.as_deref(), probed);
     if choice.remembered() {
         write_memory(&format!("trying {}", choice.backend));
     }
@@ -209,14 +229,14 @@ mod tests {
 
     #[test]
     fn the_argument_beats_everything() {
-        let c = decide(Some(" GL "), Some("vulkan"), Some("ok dx12"));
+        let c = decide(Some(" GL "), Some("vulkan"), Some("ok dx12"), None);
         assert_eq!((c.backend.as_str(), c.source), ("gl", Source::Argument));
         assert!(!c.remembered());
     }
 
     #[test]
     fn the_environment_beats_the_memory() {
-        let c = decide(None, Some("vulkan"), Some("ok dx12"));
+        let c = decide(None, Some("vulkan"), Some("ok dx12"), None);
         assert_eq!(
             (c.backend.as_str(), c.source),
             ("vulkan", Source::Environment)
@@ -225,7 +245,7 @@ mod tests {
 
     #[test]
     fn nothing_known_starts_at_the_top() {
-        let c = decide(None, None, None);
+        let c = decide(None, None, None, None);
         assert_eq!(c.backend, ORDER[0]);
         assert_eq!(c.source, Source::FirstTry);
         assert!(c.remembered());
@@ -234,13 +254,13 @@ mod tests {
     #[test]
     fn a_backend_that_drew_a_frame_is_used_again() {
         let last = ORDER[ORDER.len() - 1];
-        let c = decide(None, None, Some(&format!("ok {last}")));
+        let c = decide(None, None, Some(&format!("ok {last}")), None);
         assert_eq!((c.backend.as_str(), c.source), (last, Source::Remembered));
     }
 
     #[test]
     fn a_start_that_never_drew_moves_to_the_next_backend() {
-        let c = decide(None, None, Some(&format!("trying {}", ORDER[0])));
+        let c = decide(None, None, Some(&format!("trying {}", ORDER[0])), None);
         let want = ORDER.get(1).copied().unwrap_or(ORDER[0]);
         assert_eq!(c.backend, want);
         assert_eq!(c.source, Source::FellBack);
@@ -250,7 +270,7 @@ mod tests {
     #[test]
     fn the_last_backend_failing_stays_on_the_last() {
         let last = ORDER[ORDER.len() - 1];
-        let c = decide(None, None, Some(&format!("trying {last}")));
+        let c = decide(None, None, Some(&format!("trying {last}")), None);
         assert_eq!(c.backend, last);
     }
 
@@ -284,21 +304,48 @@ mod tests {
     #[test]
     fn windows_never_falls_back_to_vulkan() {
         assert!(!ORDER.contains(&"vulkan"));
-        let c = decide(None, None, Some("trying dx12"));
+        let c = decide(None, None, Some("trying dx12"), None);
         assert_eq!(c.backend, "gl");
         // Asked for by name, it is still used.
-        assert_eq!(decide(Some("vulkan"), None, None).backend, "vulkan");
+        assert_eq!(decide(Some("vulkan"), None, None, None).backend, "vulkan");
     }
 
     #[test]
     fn junk_in_the_memory_file_starts_over() {
         for junk in ["", "ok", "ok teapot", "hello world"] {
-            let c = decide(None, None, Some(junk));
+            let c = decide(None, None, Some(junk), None);
             assert_eq!(
                 (c.backend.as_str(), c.source),
                 (ORDER[0], Source::FirstTry),
                 "{junk:?}"
             );
         }
+    }
+
+    #[test]
+    fn with_nothing_remembered_the_probes_backend_is_used() {
+        let c = decide(None, None, None, Some("gl"));
+        assert_eq!((c.backend.as_str(), c.source), ("gl", Source::Probed));
+        assert!(c.remembered());
+        assert_eq!(c.describe(), "gl (the probe's choice)");
+        // A backend this platform never tries is not taken from the profile.
+        let c = decide(None, None, None, Some("cpu"));
+        assert_eq!(c.source, Source::FirstTry);
+    }
+
+    #[test]
+    fn what_a_start_remembered_beats_the_probe() {
+        let last = ORDER[ORDER.len() - 1];
+        let c = decide(None, None, Some(&format!("ok {last}")), Some(ORDER[0]));
+        assert_eq!(c.source, Source::Remembered);
+        let c = decide(
+            None,
+            None,
+            Some(&format!("trying {}", ORDER[0])),
+            Some(ORDER[0]),
+        );
+        assert_eq!(c.source, Source::FellBack);
+        let c = decide(Some("gl"), None, None, Some("dx12"));
+        assert_eq!(c.source, Source::Argument);
     }
 }

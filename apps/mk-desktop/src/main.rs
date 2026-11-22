@@ -127,6 +127,14 @@ fn parse_args() -> Result<Args, String> {
 
 fn main() {
     let started = Instant::now();
+    // The capability probe's child (`--probe-backend dx12|gl`): try one backend and exit. A
+    // driver that crashes here takes only this child process.
+    let raw: Vec<String> = std::env::args().collect();
+    if raw.get(1).map(String::as_str) == Some(mk_desktop::probe::CHILD_ARG) {
+        std::process::exit(mk_desktop::probe::child(
+            raw.get(2).map_or("", String::as_str),
+        ));
+    }
     let args = match parse_args() {
         Ok(a) => a,
         Err(e) => {
@@ -139,6 +147,11 @@ fn main() {
     }
     let choice = graphics::choose(args.backend.as_deref(), args.retest);
     eprintln!("makercad: graphics backend {}", choice.describe());
+    // First start without a hardware profile: probe in the background (never blocks startup).
+    // Measuring runs (`--screenshot`, `--spin`) leave the machine alone.
+    if args.screenshot.is_none() && args.spin.is_none() && mk_desktop::probe::start_if_needed() {
+        eprintln!("makercad: probing the graphics backends in the background");
+    }
 
     // OpenGL resizes badly while the window is being created (Idea Animator's finding), so on
     // OpenGL the window opens normal-sized and is maximized a moment after the first frame.
