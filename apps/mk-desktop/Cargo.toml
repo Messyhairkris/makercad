@@ -17,6 +17,8 @@ doctest = false
 mk-units = { path = "../../crates/mk-units" }
 # Sancho's figure (D27): read and posed once, standing beside the design.
 mk-sancho = { path = "../../crates/mk-sancho" }
+# The .maker project file (doc 03 section 3.6): container, manifest, intent, safe saving.
+mk-project = { path = "../../crates/mk-project" }
 # The same eframe features as SolidCraft's app, so the compiled crates are shared.
 eframe = { version = "0.37", default-features = false, features = [
     "persistence",
@@ -43,6 +45,9 @@ serde_json = "1"
 # would recompile solidcore or the engine and says why.
 solidcraft-engine = { path = "../../third_party/solidcraft/crates/engine", features = ["raytrace-cpu", "bundled-render-library", "profile"] }
 solidcraft-doc = { path = "../../third_party/solidcraft/crates/doc" }
+# A design's bytes in SolidCraft's own design format, inside the .maker file (already built: the
+# engine depends on it with the same features).
+solidcraft-io = { path = "../../third_party/solidcraft/crates/io" }
 solidcraft-kernel = { path = "../../third_party/solidcraft/crates/kernel" }
 solidcraft-gpu = { path = "../../third_party/solidcraft/crates/gpu" }
 solidcraft-viewport = { path = "../../third_party/solidcraft/crates/viewport" }

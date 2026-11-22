@@ -119,6 +119,26 @@ impl Design {
                 .execute(id, &params)
                 .map_err(|e| format!("{id}: {e}"))?;
         }
+        Self::from_session(name, session, started)
+    }
+
+    /// A design read from SolidCraft design bytes, as [`Design::design_bytes`] writes them (or a
+    /// SolidCraft `.sc` or `.json` design file's bytes). Its timeline is evaluated again.
+    pub fn from_design_bytes(name: &str, bytes: &[u8]) -> Result<Self, String> {
+        let started = Instant::now();
+        let doc = solidcraft_io::read_design(bytes).map_err(|e| e.to_string())?;
+        Self::from_session(name, Session::new(doc), started)
+    }
+
+    /// The design in SolidCraft's own design container, as its Save writes it: the document
+    /// with what is hidden put back (the session keeps that apart from the document).
+    pub fn design_bytes(&self) -> Result<Vec<u8>, String> {
+        let mut doc = (*self.session.doc).clone();
+        doc.visibility = self.session.visibility.clone();
+        solidcraft_io::write_design_container(&doc).map_err(|e| e.to_string())
+    }
+
+    fn from_session(name: &str, session: Session, started: Instant) -> Result<Self, String> {
         let camera = solidcraft_engine::view::home_camera(&session).map_err(|e| e.to_string())?;
         let build_ms = started.elapsed().as_secs_f64() * 1000.0;
         let sancho = match ScaleFigure::placeholder(f64::from(mk_sancho::DEFAULT_HEIGHT_M) * 1000.0)
@@ -730,5 +750,32 @@ mod tests {
             assert_eq!(d.name, *name);
             assert!(d.about.is_some(), "{name} says what it is");
         }
+    }
+
+    #[test]
+    fn a_design_saved_and_opened_again_builds_the_same_part() {
+        let d = Design::sample().expect("the sample builds");
+        let bytes = d.design_bytes().expect("SolidCraft writes the design");
+        assert!(solidcraft_io::is_design_container(&bytes));
+        let again = Design::from_design_bytes("Plate", &bytes).expect("and reads it back");
+        assert_eq!(again.name, "Plate");
+        let (a, b) = (
+            design_box(&d.session).expect("the sample has a part"),
+            design_box(&again.session).expect("so does the reopened design"),
+        );
+        assert!(
+            distance(a.0, b.0) < 1e-6 && distance(a.1, b.1) < 1e-6,
+            "{a:?} vs {b:?}"
+        );
+        assert_eq!(
+            d.session.doc.features.len(),
+            again.session.doc.features.len(),
+            "every step of the timeline comes back"
+        );
+    }
+
+    #[test]
+    fn junk_is_not_a_design() {
+        assert!(Design::from_design_bytes("x", b"not a design").is_err());
     }
 }

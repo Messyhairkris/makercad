@@ -93,6 +93,8 @@ pub enum Act {
     Settings,
     /// About MakerCAD.
     About,
+    /// Save the open design as a project file.
+    Save,
     /// Not built yet.
     Later(Later),
 }
@@ -266,6 +268,18 @@ pub fn all(examples: &[(&'static str, &'static str)]) -> Vec<Command> {
                 Act::Redo,
             )),
             "Ctrl+Y",
+        ),
+        // The project.
+        key(
+            on_design(cmd(
+                "app.save",
+                "Save the project",
+                "Save",
+                "keep store write file disk project maker",
+                "Project",
+                Act::Save,
+            )),
+            "Ctrl+S",
         ),
         // The modelling tools (next in P1).
         later(

@@ -13,6 +13,7 @@ pub mod graphics;
 pub mod home;
 mod icon_data;
 pub mod icons;
+pub mod project_file;
 pub mod sancho;
 pub mod scale_figure;
 pub mod shell;
@@ -125,6 +126,12 @@ pub struct MakerApp {
     render_state: Option<eframe::egui_wgpu::RenderState>,
     screen: Screen,
     design: Option<design::Design>,
+    /// The open design's project file, once it has one (saved or opened).
+    project: Option<project_file::Project>,
+    /// The folder projects are saved in and listed from.
+    projects_dir: std::path::PathBuf,
+    /// The project files in that folder, newest first: the opening screen's rows.
+    listed: Vec<project_file::Listed>,
     spin: Spin,
     /// The environment tab in front.
     env: Env,
@@ -181,6 +188,9 @@ impl MakerApp {
             render_state: cc.wgpu_render_state.clone(),
             screen: Screen::Home,
             design: None,
+            project: None,
+            projects_dir: project_file::folder(),
+            listed: Vec::new(),
             spin: Spin::default(),
             env: Env::Design,
             units,
@@ -191,6 +201,8 @@ impl MakerApp {
         };
         if app.launch.demo {
             app.load_demo();
+        } else {
+            app.refresh_projects();
         }
         if app.launch.sample {
             app.open_example(0, 0.0);
@@ -215,10 +227,105 @@ impl MakerApp {
         match design::Design::example(index) {
             Ok(d) => {
                 self.design = Some(d);
+                // An example is not a project until it is saved.
+                self.project = None;
                 self.screen = Screen::Design;
                 self.env = Env::Design;
             }
             Err(e) => self.notice = Some((format!("{name} did not build: {e}"), now + 8.0)),
+        }
+    }
+
+    /// Reads the projects folder again and makes the opening screen's rows from it.
+    fn refresh_projects(&mut self) {
+        self.listed = project_file::list(&self.projects_dir);
+        let now = std::time::SystemTime::now();
+        self.recents = self
+            .listed
+            .iter()
+            .map(|l| Recent {
+                name: project_file::stem(&l.file).to_string(),
+                done: 0,
+                under_way: false,
+                when: saved_when(l.modified, now),
+                chip: "saved".into(),
+                chip_kind: ChipKind::Neutral,
+            })
+            .collect();
+        self.keep_going = self.recents.first().map(|r| {
+            (
+                r.name.clone(),
+                format!("Last {}. Open it to carry on where you left off.", r.when),
+            )
+        });
+    }
+
+    /// Saves the open design as a project file (Ctrl+S); its first save makes the project.
+    /// Returns what to tell the person.
+    fn save_project(&mut self) -> String {
+        let Some(design) = self.design.as_ref() else {
+            return "Open a design first (Examples), then save it as a project.".into();
+        };
+        let bytes = match design.design_bytes() {
+            Ok(bytes) => bytes,
+            Err(e) => return format!("Not saved: the design could not be written ({e})."),
+        };
+        if self.project.is_none() {
+            match project_file::Project::new(&design.name, design.about.as_deref().unwrap_or("")) {
+                Ok(project) => self.project = Some(project),
+                Err(e) => return format!("Not saved: {e}"),
+            }
+        }
+        let Some(project) = self.project.as_ref() else {
+            return "Not saved.".into();
+        };
+        let result = project.save(&self.projects_dir, &bytes);
+        let file = project.file.clone();
+        self.refresh_projects();
+        match result {
+            Ok(path) => format!(
+                "Saved {file} in {}",
+                path.parent().unwrap_or(&path).display()
+            ),
+            Err(e) => format!("Not saved: {e}"),
+        }
+    }
+
+    /// Opens the project file listed at `index` in the Design workspace. Returns what to tell
+    /// the person.
+    fn open_project(&mut self, index: usize) -> String {
+        let Some(listed) = self.listed.get(index).cloned() else {
+            return "That project is no longer in the folder.".into();
+        };
+        let loaded = match project_file::open(&self.projects_dir, &listed.file) {
+            Ok(loaded) => loaded,
+            Err(e) => return format!("{} did not open: {e}", listed.file),
+        };
+        let name = loaded.project.intent.name.clone();
+        match design::Design::from_design_bytes(&name, &loaded.design) {
+            Ok(mut d) => {
+                d.about = Some(loaded.project.intent.goal.clone());
+                self.design = Some(d);
+                self.project = Some(loaded.project);
+                self.screen = Screen::Design;
+                self.env = Env::Design;
+                let mut text = if loaded.recovered {
+                    format!(
+                        "{} was damaged, so its recovery copy (the save before) opened.",
+                        listed.file
+                    )
+                } else {
+                    format!("Opened {}.", listed.file)
+                };
+                if loaded.changed_outside > 0 {
+                    text.push_str(&format!(
+                        " {} of its parts changed outside MakerCAD since it was saved.",
+                        loaded.changed_outside
+                    ));
+                }
+                text
+            }
+            Err(e) => format!("{}: its design did not open ({e})", listed.file),
         }
     }
 
@@ -233,6 +340,10 @@ impl MakerApp {
             Act::Search => self.search.open(),
             Act::Settings => self.settings_open = true,
             Act::About => self.help_open = true,
+            Act::Save => {
+                let text = self.save_project();
+                self.notice = Some((text, now + 6.0));
+            }
             Act::SetLook(look) => self.look = look,
             Act::SetUnits(units) => self.units = units,
             Act::Later(l) if l.phase == "now" => say(format!("{}: {}", l.what, l.note), 6.0),
@@ -378,12 +489,20 @@ impl MakerApp {
             HomeAction::StartNew => {
                 say("The Quest (Start something new) is the first screen of P1. Not built yet.")
             }
-            HomeAction::KeepGoing if self.keep_going.is_some() => {
-                say("The Workspace is still a design (docs/design/ui-v1). It is built in P1.")
+            HomeAction::KeepGoing if !self.listed.is_empty() => {
+                Some((self.open_project(0), now + 6.0))
             }
-            HomeAction::KeepGoing => say("Nothing under way yet. Start something new first."),
+            HomeAction::KeepGoing if self.keep_going.is_some() => {
+                say("These are the design canvas's sample projects (--demo); they do not open.")
+            }
+            HomeAction::KeepGoing => {
+                say("Nothing saved yet. Open an example and save it (Ctrl+S) to make a project.")
+            }
+            HomeAction::OpenRecent(i) if i < self.listed.len() => {
+                Some((self.open_project(i), now + 6.0))
+            }
             HomeAction::OpenRecent(_) => {
-                say("Opening a project needs the project file, which comes with P1.")
+                say("These are the design canvas's sample projects (--demo); they do not open.")
             }
             HomeAction::OpenWorkshop => {
                 say("The workshop (your tools and materials) comes with P1.")
@@ -559,6 +678,18 @@ impl MakerApp {
 }
 
 /// Writes an egui image as a PNG.
+/// When a project file was last saved, for the opening screen ("saved today").
+fn saved_when(modified: Option<std::time::SystemTime>, now: std::time::SystemTime) -> String {
+    match modified.and_then(|m| now.duration_since(m).ok()) {
+        None => "saved".into(),
+        Some(age) => match age.as_secs() / 86_400 {
+            0 => "saved today".into(),
+            1 => "saved yesterday".into(),
+            days => format!("saved {days} days ago"),
+        },
+    }
+}
+
 fn save_png(image: &egui::ColorImage, path: &std::path::Path) -> Result<(), String> {
     let [w, h] = image.size;
     let bytes: Vec<u8> = image.pixels.iter().flat_map(|c| c.to_array()).collect();
@@ -647,6 +778,9 @@ impl eframe::App for MakerApp {
         ctx.input_mut(|i| {
             if i.consume_key(Modifiers::COMMAND, Key::K) {
                 acts.push(Act::Search);
+            }
+            if self.screen == Screen::Design && i.consume_key(Modifiers::COMMAND, Key::S) {
+                acts.push(Act::Save);
             }
             if !typing && !self.search.open && self.screen == Screen::Design {
                 if i.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::Z)
