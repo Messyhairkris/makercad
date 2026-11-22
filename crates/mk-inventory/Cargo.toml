@@ -11,3 +11,11 @@ doctest = false
 
 [dependencies]
 mk-units = { path = "../mk-units" }
+
+# The workshop library, library.db (doc 04 section 4.3). SQLite is C, built from the bundled
+# source, so the library module is desktop-only: the crate still builds for wasm32 without it.
+# 0.41.1 rather than the newest (0.43.0, a week old on 2026-11-22): Kris approved adding SQLite.
+# No default features: the statement cache brings hashlink, which turns on a hashbrown feature
+# that wgpu and naga share, and would rebuild SolidCraft's graphics crates for nothing.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rusqlite = { version = "0.41.1", default-features = false, features = ["bundled"] }

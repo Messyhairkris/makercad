@@ -21,6 +21,11 @@ mk-sancho = { path = "../../crates/mk-sancho" }
 mk-project = { path = "../../crates/mk-project" }
 # The hardware profile the capability probe writes (doc 12 section 12.2).
 mk-probe = { path = "../../crates/mk-probe" }
+# The Quest's questions as data (doc 05 section 5.2), the project interpreter (section 5.4), and
+# the taxonomy and quick-add for the tools and materials steps.
+mk-log = { path = "../../crates/mk-log" }
+mk-assist = { path = "../../crates/mk-assist" }
+mk-inventory = { path = "../../crates/mk-inventory" }
 # The probe's child blocks on wgpu's adapter and device requests (eframe uses the same crate).
 pollster = "1"
 # The same eframe features as SolidCraft's app, so the compiled crates are shared.

@@ -1,6 +1,6 @@
 //! The maker's stock (MakerCAD docs 04 and 05). So far: quick-add, which reads a line like
-//! "15 pine 2x4s, 3 foot" or "half sheet 3/4 ply" into an item, and the taxonomy v1 of tool
-//! kinds, material kinds and kits. The library and salvage come later.
+//! "15 pine 2x4s, 3 foot" or "half sheet 3/4 ply" into an item, the taxonomy v1 of tool
+//! kinds, material kinds and kits, and the workshop library (`library.db`). Salvage comes later.
 //!
 //! `quickadd.rs` is the Crew's module (campaign mk-core-3), landed byte-for-byte; it was
 //! written against `crate::units`, which this re-export provides.
@@ -10,11 +10,17 @@
 //! `taxonomy.rs` is the Crew's lookups over it (campaign mk-core-12): by id, by a maker's words
 //! (the longest phrase wins, simple plurals), by the capability a step needs, and the best grade
 //! a set of tools gives.
+//!
+//! `library.rs` is the maker's own tools and materials in SQLite (doc 04 section 4.3: "global
+//! per user (`library.db`, SQLite) and snapshotted per project"), written by Claude. Desktop
+//! only: it is left out of the wasm32 build.
 
 mod units {
     pub use mk_units::{nominal_lumber, parse_length, Unit};
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod library;
 pub mod quickadd;
 pub mod taxonomy;
 pub mod taxonomy_data;
