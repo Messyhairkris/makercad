@@ -11,6 +11,7 @@ import argparse
 import ast
 import datetime
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -45,6 +46,12 @@ def regenerate():
     lines.append("];")
     with open(DATA, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
+    # Long ids push a line past 100 characters, and the cloud's format gate refuses the file
+    # unformatted (cloud run #5, 2026-11-21), so rustfmt it here.
+    try:
+        subprocess.run(["rustfmt", "--edition", "2021", DATA], check=True)
+    except (OSError, subprocess.CalledProcessError) as e:
+        print(f"warning: rustfmt did not format {DATA}: {e}; run cargo fmt -p mk-desktop")
     return len(names)
 
 
