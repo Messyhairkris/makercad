@@ -28,10 +28,16 @@
 //! part in two. Every material number comes in as a value; a rule that lacks one says nothing.
 //! The app gives the floor as a part or a contact, or a part standing on it reads as held by
 //! nothing.
+//!
+//! `rules_safety`: Sancho's safety rule pack, loaded always (doc 07 section 7.5): PVC or vinyl in
+//! a laser, a finish in an unventilated space, mains wiring at beginner skill, furniture that can
+//! tip over, and a wall-mounted part heavier than its anchor. Unsafe findings need one confirm
+//! (the ledger does that); a missing fact says nothing.
 
 pub mod findings;
 pub mod interpret;
 pub mod memory;
 pub mod rules_core;
+pub mod rules_safety;
 pub mod rules_structure;
 pub mod rules_tools;
