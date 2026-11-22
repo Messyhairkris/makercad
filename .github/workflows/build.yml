@@ -29,7 +29,7 @@ env:
 
 jobs:
   gates:
-    name: Gates (fmt, brand-free, clippy, tests)
+    name: Gates (fmt, brand-free, layers, wasm, clippy, tests)
     runs-on: windows-2025
     timeout-minutes: 240
     steps:
@@ -40,6 +40,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.99.1
         with:
           components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           key: gates
@@ -50,6 +51,21 @@ jobs:
       - name: Brand-free (AGENTS.md rule 3)
         shell: pwsh
         run: ./tools/brand_free.ps1
+      - name: Layers (doc 03 section 3.10)
+        shell: pwsh
+        # pwsh steps report only the last command's exit code: stop at the first failure.
+        run: |
+          python tools/layers.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -m pip install --quiet pytest==8.3.4
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -m pytest -q tools/test_layers.py -p no:cacheprovider
+      - name: wasm (doc 03 section 3.10; every crate below the apps builds for wasm32)
+        shell: pwsh
+        run: |
+          $packages = python tools/layers.py --wasm-packages | ForEach-Object { '-p', $_ }
+          if ($LASTEXITCODE -or -not $packages) { exit 1 }
+          cargo check --locked --target wasm32-unknown-unknown @packages
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Tests

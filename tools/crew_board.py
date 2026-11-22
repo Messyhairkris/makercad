@@ -60,11 +60,19 @@ def pa_builds() -> list:
     rows = []
     for folder in sorted((CREW / "pa" / "builds").glob("*mk-*")):
         st = load(folder / "status.json") or {}
-        guard = st.get("guard", {})
+        guard = st.get("guard") or {}
+        state = st.get("state", "?")
+        if state == "running":
+            note = f"round {st.get('round', '?')}, step {guard.get('steps', 0)}"
+        elif st.get("passed"):
+            state, note = "passed", ""
+        else:
+            state = "stopped"
+            note = st.get("stopped_by_guard") or "its check did not pass in the run"
         rows.append((st.get("started", ""), st.get("pa", "?"), st.get("branch", folder.name),
-                     st.get("state", "?"), st.get("round", "?"), guard.get("tool_calls", 0)))
+                     state, note))
     rows.sort(reverse=True)
-    return rows[:6]
+    return rows[:8]
 
 
 def single_jobs(ids: list) -> list:
@@ -108,10 +116,10 @@ def page(jobs: list) -> str:
         parts.append(f"<tr><td>{html.escape(name)}</td><td>{chip(state)}</td>"
                      f"<td>{html.escape(who)}</td><td>{req}</td></tr>")
     parts.append("</table><h2>PA jobs (reference + hidden tests)</h2><table><tr><th>PA</th>"
-                 "<th>branch</th><th>state</th><th>round</th><th>tool calls</th></tr>")
-    for _, pa, branch, state, rnd, calls in pa_builds():
+                 "<th>branch</th><th>state</th><th>where it is, or why it stopped</th></tr>")
+    for _, pa, branch, state, note in pa_builds():
         parts.append(f"<tr><td>{html.escape(pa)}</td><td>{html.escape(branch)}</td>"
-                     f"<td>{chip(state)}</td><td>{rnd}</td><td>{calls}</td></tr>")
+                     f"<td>{chip(state)}</td><td>{html.escape(note)}</td></tr>")
     parts.append("</table>")
     if jobs:
         parts.append("<h2>Drafts</h2><table><tr><th>draft</th><th>member</th><th>state</th>"
