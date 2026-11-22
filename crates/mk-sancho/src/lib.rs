@@ -20,9 +20,15 @@
 //! mk-core-14): look-at with clamped yaw and pitch split between neck and head, point-at as a
 //! two-bone IK, clip crossfades, the event-to-clip table, what each hardware tier runs, walking
 //! and height scaling. f64 throughout; no glTF or GPU here.
+//!
+//! [`persona`] is the persona file of "Bring your own Sancho" (doc 07 section 7.3.1; campaign
+//! mk-core-15): the TOML subset it uses read and written back, errors with line numbers, Mixamo
+//! names and a built-in Rigify-to-Mixamo table, and an imported model checked against facts the
+//! app measured (bones, influences, clips, rest height, triangles).
 
 pub mod figure;
 mod glb;
+pub mod persona;
 pub mod rig;
 mod shapes;
 

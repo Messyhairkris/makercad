@@ -9,7 +9,12 @@
 //! `interview`: the session-end interview (doc 07 section 7.7): when it is offered, the six
 //! questions, the draft of what was done from the command log, cause chips, skippable answers,
 //! and the journal bodies it becomes (a session record, and an open page when one was skipped).
+//!
+//! `prompts`: the journal's seven prompt moments (doc 10 section 10.4): which events make each
+//! one due, skipping one into an open page, answering it (due or open), and the lists the app
+//! shows.
 
 pub mod interview;
 pub mod journal;
+pub mod prompts;
 pub mod quest;
