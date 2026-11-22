@@ -4,9 +4,11 @@
 //! crew/contracts/mk_project.md (ATLAS-api-harness), which Claude finished from Gordon's brief.
 
 use crate::layout::check_name;
+use serde::{Deserialize, Serialize};
 
 /// Milliseconds since an epoch the app chooses. The module only stores them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Timestamp(pub u64);
 
 /// The format version this build writes.
@@ -21,14 +23,14 @@ pub enum FormatStatus {
 }
 
 /// One entry of the hash index: an entry name in the container and its content hash.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HashEntry {
     pub name: String,
     pub hash: String,
 }
 
 /// The manifest (manifest.json).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Manifest {
     pub format_version: u32,
     pub app_version: String,
@@ -37,7 +39,7 @@ pub struct Manifest {
 }
 
 /// A calendar date. The module checks it is a real date; it never reads today's date.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Date {
     pub year: u16,
     pub month: u8,
@@ -45,7 +47,8 @@ pub struct Date {
 }
 
 /// A day of the week.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Weekday {
     Mon,
     Tue,
@@ -57,7 +60,7 @@ pub enum Weekday {
 }
 
 /// A time the maker can work: some days, from start to end, in minutes after midnight.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkWindow {
     pub days: Vec<Weekday>,
     pub start_minute: u16,
@@ -65,14 +68,14 @@ pub struct WorkWindow {
 }
 
 /// A milestone on the way to the deadline.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Milestone {
     pub label: String,
     pub due: Option<Date>,
 }
 
 /// The deadline: a date, the work windows, the milestones (doc 04 section 4.5).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Deadline {
     pub due: Date,
     pub windows: Vec<WorkWindow>,
@@ -81,7 +84,7 @@ pub struct Deadline {
 
 /// The budget: a cap in the currency's smallest unit (cents, pence), the currency, and
 /// whether to spend only if needed.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Budget {
     pub cap_minor: u64,
     pub currency: String,
@@ -97,7 +100,8 @@ pub enum BudgetLevel {
 }
 
 /// The maker's skill (doc 04 section 4.2).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Skill {
     Beginner,
     Comfortable,
@@ -106,7 +110,7 @@ pub enum Skill {
 }
 
 /// One edit of the goal, kept with its reason.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IntentEdit {
     pub at: Timestamp,
     pub text: String,
@@ -114,7 +118,7 @@ pub struct IntentEdit {
 }
 
 /// The intent (project/intent.json).
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Intent {
     pub name: String,
     pub goal: String,
