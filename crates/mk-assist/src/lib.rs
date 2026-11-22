@@ -8,7 +8,17 @@
 //! severity, source, location and material facts, and the ledger that decides whether Sancho
 //! says it, keeps it in the panel, asks for the one confirm an unsafe step needs, or stays quiet
 //! (said once; quiet after a dismissal until the facts change; Silence, Mute, Off; a rule
-//! overridden three times demoted to the panel). The rule packs that make findings come next.
+//! overridden three times demoted to the panel).
+//!
+//! `rules_core`: the core rule pack, always loaded (doc 07 section 7.5): intent missing, a skipped
+//! prompt that matters now, and unit sanity (a part too big for the project's scale class, the
+//! 3 m pencil; or the whole design far too small). Facts in, findings out.
+//!
+//! `memory`: Sancho's relationship memory (doc 07 section 7.9): days with a session, streaks,
+//! completed projects, favourite materials, override counts, an opt-out that keeps nothing, and
+//! the greeting's facts (the Voice layer words them).
 
 pub mod findings;
 pub mod interpret;
+pub mod memory;
+pub mod rules_core;
