@@ -205,7 +205,10 @@ fn rule_d1_draft_of_one_two_three_things() {
     let c = Done::Generated {
         what: "c".to_string(),
     };
-    assert_eq!(draft(std::slice::from_ref(&a)).as_deref(), Some("You generated a."));
+    assert_eq!(
+        draft(std::slice::from_ref(&a)).as_deref(),
+        Some("You generated a.")
+    );
     assert_eq!(
         draft(&[a.clone(), b.clone()]).as_deref(),
         Some("You generated a and generated b.")
