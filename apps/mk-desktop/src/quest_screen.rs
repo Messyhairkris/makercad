@@ -192,7 +192,7 @@ impl NewProject {
         self.hint = None;
         // Record the answers so the rail's marks show them (a failed step just stays open).
         for _ in 0..self.quest.steps().len() - 1 {
-            if self.next().is_err() {
+            if self.advance().is_err() {
                 break;
             }
         }
@@ -231,7 +231,7 @@ impl NewProject {
     }
 
     /// Records what was typed into the step in front and moves on; says why when it can't.
-    pub fn next(&mut self) -> Result<(), String> {
+    pub fn advance(&mut self) -> Result<(), String> {
         let step = self.step().clone();
         let answer = self.answer_of(&step)?;
         self.quest
@@ -971,7 +971,7 @@ fn question(
                     None => "Next".into(),
                 };
                 if ui.add(accent_button(&label)).clicked() {
-                    if let Err(e) = np.next() {
+                    if let Err(e) = np.advance() {
                         np.hint = Some(e);
                     }
                 }
@@ -1004,7 +1004,7 @@ fn field(ui: &mut Ui, text: &mut String, hint: &str) -> egui::Response {
 /// Enter in a one-line field means Next.
 fn enter_moves_on(ui: &Ui, response: &egui::Response, np: &mut NewProject) {
     if response.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
-        if let Err(e) = np.next() {
+        if let Err(e) = np.advance() {
             np.hint = Some(e);
         }
     }
@@ -1370,23 +1370,23 @@ mod tests {
     fn a_dresser_quest_sets_up_room_scale_stock_and_plan() {
         let mut np = NewProject::new(false);
         np.name = "Alcove dresser".into();
-        np.next().unwrap();
+        np.advance().unwrap();
         np.goal = "A dresser for the bedroom alcove".into();
-        np.next().unwrap();
+        np.advance().unwrap();
         np.fit = Some(FitPick::DecideLater);
-        np.next().unwrap();
+        np.advance().unwrap();
         np.add_kit("starter_woodshop");
         assert!(!np.tools.is_empty());
-        np.next().unwrap();
+        np.advance().unwrap();
         np.material_text = "15 pine 2x4s, 3 foot".into();
         np.add_material();
         assert_eq!(np.materials.len(), 1);
-        np.next().unwrap();
+        np.advance().unwrap();
         np.deadline_text = "2026-12-24".into();
-        np.next().unwrap();
+        np.advance().unwrap();
         np.budget = Some(BudgetPick::Cap);
         np.budget_text = "150".into();
-        np.next().unwrap();
+        np.advance().unwrap();
         np.skip();
         assert_eq!(np.step().id, StepId::Review);
 
@@ -1440,11 +1440,11 @@ mod tests {
         np.go_to(5);
         assert_eq!(np.step().id, StepId::Deadline);
         np.deadline_text = "soon".into();
-        assert!(np.next().is_err());
+        assert!(np.advance().is_err());
         assert_eq!(np.step().id, StepId::Deadline);
         np.deadline_text.clear();
         np.no_deadline = true;
-        np.next().unwrap();
+        np.advance().unwrap();
         assert_eq!(
             np.answer_for(&StepId::Deadline),
             Some(&Answer::Deadline(None))
