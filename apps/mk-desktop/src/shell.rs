@@ -577,8 +577,10 @@ pub fn toolbox(ui: &mut Ui, kit: &mut Kit<'_>) -> Option<Act> {
 
 /// What the status bar shows.
 pub struct StatusModel<'a> {
-    /// Lengths in mm or inches.
+    /// Lengths in mm or inches: the open project's own system, else the default for new ones.
     pub units: Units,
+    /// Whether the units belong to an open project (so the toggle changes that project).
+    pub document: bool,
     /// Sancho's height in mm, when a design with him is open.
     pub sancho_mm: Option<f64>,
     /// The graphics backend in short ("dx12").
@@ -641,9 +643,11 @@ pub fn status_bar(ui: &mut Ui, kit: &mut Kit<'_>, m: &StatusModel<'_>) -> Option
                 } else {
                     kit.p.muted
                 });
-                let hint = match units {
-                    Units::Mm => "Show sizes in millimetres",
-                    Units::In => "Show sizes in inches",
+                let hint = match (units, m.document) {
+                    (Units::Mm, false) => "New projects measure in millimetres",
+                    (Units::In, false) => "New projects measure in inches",
+                    (Units::Mm, true) => "This project measures in millimetres",
+                    (Units::In, true) => "This project measures in inches",
                 };
                 if ui
                     .add(

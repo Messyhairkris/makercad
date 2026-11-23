@@ -19,8 +19,10 @@ use mk_inventory::taxonomy;
 use mk_inventory::taxonomy_data::Access;
 use mk_log::quest::{self, Answer, AnswerKind, FitPick, Quest, StepId, Template};
 use mk_project::project::{is_real_date, Budget, Date};
+use mk_units::system::{self, System};
 use serde_json::json;
 
+use crate::quantity;
 use crate::theme::{Palette, ACCENT, PAPER, SANCHO_INK};
 use crate::workshop_screen::{when_to_json, when_window, WhenAction, WhenEditor};
 
@@ -177,6 +179,8 @@ pub struct Created {
     pub scale: Option<Scale>,
     /// `project/inventory.json`'s bytes.
     pub inventory: Vec<u8>,
+    /// The measuring system the project keeps its lengths in (D34).
+    pub units: System,
     /// The steps skipped or never answered, for the Intent card.
     pub outstanding: Vec<StepId>,
 }
@@ -390,6 +394,35 @@ impl NewProject {
             self.when_editing = Some((kind, WhenEditor::new(&self.tool_availability(kind))));
         }
         self.hint = None;
+    }
+
+    /// For `--quest N --typed` screenshots: a size typed in feet and inches, not yet confirmed,
+    /// so the box shows what it comes to in the project's own system.
+    pub fn fill_typed_sample(&mut self) {
+        self.fit = Some(FitPick::TypeSizes);
+        self.size_text = "5 ft 6 in".into();
+        self.hint = None;
+    }
+
+    /// The measuring system this project keeps its lengths in (D34).
+    pub fn system(&self) -> System {
+        if self.inches {
+            System::Imperial
+        } else {
+            System::Metric
+        }
+    }
+
+    /// Changes the project's measuring system. A size already typed is the same length in the
+    /// new system (1500 mm becomes 59 1/16"); one that does not read is left as it is.
+    pub fn set_system(&mut self, to: System) {
+        let from = self.system();
+        self.inches = to == System::Imperial;
+        if from != to {
+            if let Ok(reading) = system::read(&self.size_text, from) {
+                self.size_text = system::show(reading.kept_mm, to);
+            }
+        }
     }
 
     /// The steps, in order.
@@ -669,6 +702,7 @@ impl NewProject {
             environments,
             scale: self.scale(&interpretation).map(|(s, _)| s),
             inventory: self.inventory_json(),
+            units: self.system(),
             outstanding: self.quest.outstanding(),
         })
     }
@@ -1202,7 +1236,7 @@ pub(crate) fn muted(ui: &mut Ui, p: &Palette, text: &str) {
     ui.add_space(4.0);
 }
 
-fn field(ui: &mut Ui, text: &mut String, hint: &str) -> egui::Response {
+pub(crate) fn field(ui: &mut Ui, text: &mut String, hint: &str) -> egui::Response {
     ui.add(
         egui::TextEdit::singleline(text)
             .hint_text(hint)
@@ -1237,6 +1271,26 @@ pub(crate) fn add_box(ui: &mut Ui, p: &Palette, text: &mut String, hint: &str) -
 }
 
 fn fit_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
+    // The project's measuring system: every length typed into it is turned into this.
+    ui.horizontal_wrapped(|ui| {
+        ui.label(
+            RichText::new("This project measures in")
+                .size(15.0)
+                .color(p.ink),
+        );
+        for s in System::ALL {
+            if ui.selectable_label(np.system() == s, s.name()).clicked() {
+                np.set_system(s);
+            }
+        }
+    });
+    muted(
+        ui,
+        p,
+        "Type a size any way you like (millimetres, inches, feet, fractions); it is turned into \
+         this when you press Enter.",
+    );
+    ui.add_space(6.0);
     for (pick, label) in [
         (FitPick::TypeSizes, "I'll type sizes"),
         (FitPick::HaveScan, "I have a scan"),
@@ -1257,22 +1311,24 @@ fn fit_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
     match np.fit {
         Some(FitPick::TypeSizes) => {
             ui.add_space(6.0);
+            let units = np.system();
             ui.horizontal(|ui| {
                 ui.label(RichText::new("Its longest size").size(15.0).color(p.ink));
-                field(
+                let response = field(
                     ui,
                     &mut np.size_text,
                     if np.inches { "48 in" } else { "1200 mm" },
                 );
+                quantity::confirm_on_leave(&response, &mut np.size_text, units);
             });
-            if !np.size_text.trim().is_empty() {
-                let said = match np.longest_mm().and_then(quest::class_for_size) {
-                    Some(class) => format!("That's {} scale.", Scale::from_quest(class).name()),
-                    None => {
-                        "I can't read that as a length yet (try 1200 mm, 4 ft or 48 in).".into()
-                    }
-                };
-                muted(ui, p, &said);
+            // What the typing comes to (or why it doesn't read), then the scale it makes.
+            quantity::say(ui, p, &np.size_text, units);
+            if let Some(class) = np.longest_mm().and_then(quest::class_for_size) {
+                muted(
+                    ui,
+                    p,
+                    &format!("That's {} scale.", Scale::from_quest(class).name()),
+                );
             }
         }
         Some(FitPick::HaveScan) | Some(FitPick::PhotographWithReference) => {
@@ -1997,6 +2053,69 @@ mod tests {
             library.materials().unwrap().len(),
         );
         assert_eq!(before, after);
+    }
+
+    #[test]
+    fn a_project_is_made_in_the_measuring_system_it_was_set_to() {
+        let mut np = NewProject::new(true);
+        assert_eq!(np.system(), System::Imperial);
+        assert_eq!(np.finish(true).unwrap().units, System::Imperial);
+        let mut np = NewProject::new(false);
+        assert_eq!(np.system(), System::Metric);
+        np.set_system(System::Imperial);
+        assert_eq!(np.system(), System::Imperial);
+        assert_eq!(np.finish(true).unwrap().units, System::Imperial);
+        let mut np = NewProject::new(true);
+        np.set_system(System::Metric);
+        assert_eq!(np.finish(true).unwrap().units, System::Metric);
+    }
+
+    #[test]
+    fn changing_the_system_makes_a_typed_size_the_same_length_in_the_new_one() {
+        let mut np = NewProject::new(false);
+        np.fit = Some(FitPick::TypeSizes);
+        np.size_text = "1500 mm".into();
+        np.set_system(System::Imperial);
+        assert_eq!(np.size_text, "59 1/16\"");
+        let mm = np.longest_mm().unwrap();
+        assert!((mm - 1500.1875).abs() < 1e-6, "{mm}");
+        np.set_system(System::Metric);
+        assert_eq!(np.size_text, "1500.19 mm");
+        // The same system again, and a size that does not read, are left alone.
+        np.set_system(System::Metric);
+        assert_eq!(np.size_text, "1500.19 mm");
+        np.size_text = "a lot".into();
+        np.set_system(System::Imperial);
+        assert_eq!(np.size_text, "a lot");
+        np.size_text.clear();
+        np.set_system(System::Metric);
+        assert_eq!(np.size_text, "");
+    }
+
+    #[test]
+    fn a_size_typed_any_way_sets_the_same_scale_and_reads_back_as_the_projects_own() {
+        for inches in [false, true] {
+            let mut np = NewProject::new(inches);
+            np.fit = Some(FitPick::TypeSizes);
+            np.size_text = "5 ft".into();
+            let by_feet = np.scale(&np.interpretation()).map(|s| s.0);
+            np.size_text = "1524 mm".into();
+            let by_mm = np.scale(&np.interpretation()).map(|s| s.0);
+            assert!(by_feet.is_some());
+            assert_eq!(by_feet, by_mm);
+            // Confirming writes it the project's way, and the scale's reason says so.
+            np.size_text = "5 ft 6 in".into();
+            let system = np.system();
+            let kept = quantity::confirm(&mut np.size_text, system).unwrap();
+            assert!((kept - 1676.4).abs() < 0.2);
+            let reason = np.scale(&np.interpretation()).map(|s| s.1).unwrap();
+            assert!(reason.contains(&np.size_text), "{reason}");
+            assert_eq!(
+                np.size_text,
+                if inches { "66\"" } else { "1676.4 mm" },
+                "inches: {inches}"
+            );
+        }
     }
 
     #[test]

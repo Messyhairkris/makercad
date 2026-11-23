@@ -144,6 +144,7 @@ my-dresser.maker
   manifest.json              format version, app version, environments used, hash index
   project/intent.json        name, goal text, success criteria, deadline, budget, skill
   project/inventory.json     snapshot of tools/materials/salvage *as used by this project*
+  project/document.json      what the document says about itself: its measuring system (D34)
   project/space/             space definitions, scan refs, calibration, room semantics
   project/inspiration/       mood board items (images, notes, sketches, links)
   designs/<id>.sc            SolidCraft design documents (one per design in the project)
@@ -160,6 +161,7 @@ Rules:
 - **Large media is linked by default**, not embedded: scans and video are often gigabytes. The project stores a path plus a content hash and warns if the file goes missing. "Pack for sharing" embeds everything.
 - **Inventory is snapshotted into the project.** The user's global inventory lives in `%APPDATA%\MakerCAD\library.db`. The project keeps the copy it used, so a shared project still makes sense on someone else's machine. On open, differences from the local inventory are offered as a diff ("you now have 3 more boards").
 - **A design is plain SolidCraft format plus a sidecar extension file.** A design can be opened in stock SolidCraft (losing stock bindings). That's a good property, and a free compatibility test.
+- **A document measures in one system** (D34): `project/document.json` holds `{"version": 1, "units": "metric" | "imperial"}`. It is additive: a project without it measures in the app's default, and a note that cannot be read says nothing rather than failing. Every length is millimetres underneath; the system decides only how lengths are written and read, and the precision they are kept at (hundredths of a millimetre, or 64ths of an inch). Words a newer MakerCAD adds to the note are kept when an older one changes `units`.
 - **Migrations** are versioned. Every format change ships with a migration test.
 
 ## 3.7 Environment host (summary; full catalogue in doc 06)

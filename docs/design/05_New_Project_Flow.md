@@ -36,7 +36,7 @@ A new project is a short, friendly conversation with Sancho. **Every step can be
 |---|---|---|---|
 | 1 | **What shall we call it?** | Text | Project name, file name |
 | 2 | **What would you like to make?** | Free text (multi-line), voice dictation where the OS supports it, optional sketch or photo | Intent goal; feeds the interpreter (§5.4) |
-| 3 | **Where does it need to fit? How big is it?** | Pick: "I'll type sizes" · "I have a scan" · "I'll photograph it with a reference" · "It's small, no fixed space" · "I'll decide later" | Spaces; scale class (§5.5) |
+| 3 | **Where does it need to fit? How big is it?** | First, **which system the project measures in** (metric or imperial; starts from the app's setting). Then pick: "I'll type sizes" · "I have a scan" · "I'll photograph it with a reference" · "It's small, no fixed space" · "I'll decide later". A typed size can be written any way ("1200 mm", "4 ft", "3 1/2 in", "5 ft 6 in"); the box says what it comes to in the project's system as it is typed, and Enter (or moving on) turns the text into that system (D34) | Spaces; scale class (§5.5); the project's measuring system |
 | 4 | **What tools do you have?** | Kits + untick; checklist filtered by what the interpreter thinks is relevant; "same as my workshop"; photos of the pegboard | Tools snapshot |
 | 5 | **What materials do you have?** | Quick-add phrases ("15 pine 2x4 3ft"), workshop picks, photos, salvage items; examples shown | Materials, salvage, hardware snapshot |
 | 6 | **When do you need it?** | Date picker + "no deadline"; work windows ("when can you work on it?") | Deadline, calendar |
@@ -48,7 +48,7 @@ Design rules:
 - **Questions are data** (`mk-log/quest.toml`), not code. Project templates (packaging, soft goods, room) can add or reorder steps. For example, packaging asks "What goes in the box?" and "How many will you make?" (quantity changes the economics: a die versus a cutting plotter).
 - **Examples under every field**, chosen by the interpreter: if the goal mentions "box", the material examples show cereal boxes, chipboard and corrugated E-flute.
 - **Quick-add parser** for materials. It handles `qty × nominal × length [material] [condition]` in many forms: "15 pine 2x4s, 3 foot", "half sheet 3/4 ply", "2 yards 500D Cordura", "old tent". Ambiguity is confirmed inline ("3 foot = 36″ each?").
-- **Nothing blocks the CAD.** "Skip to designing" is always there. A skipped question shows as a gentle outstanding item on the Intent card, and Sancho mentions it once if it becomes relevant ("I can't check material use yet — tell me what you have?").
+- **Nothing blocks the CAD.** "Skip to designing" is always there. A skipped question shows as a gentle outstanding item on the Intent card, and the card says so again where it becomes relevant, in its own words (Sancho does not carry the message: D32; "I can't check material use yet — tell me what you have?").
 
 > Note on v5's "toolbox stays locked if creation is skipped": dropped. Locking contradicted P1. Instead, the toolbox falls back to the full catalogue in default order, and the project is marked "Intent missing".
 
@@ -147,4 +147,4 @@ The scale class sets grid, units display, camera defaults, snapping increments, 
 
 - The project opens to its last state. The journal's last session summary appears for 5 seconds as a toast ("Last time: cut list done, two drawers glued. Next: drawer runners").
 - **Inventory drift check**: if the global inventory changed, offer to update the project snapshot (doc 03 §3.6).
-- **Deadline check**: if the plan is behind, Sancho mentions it once with options (cut scope, extend, add a work window). Doc 10 §10.3.
+- **Deadline check**: if the plan is behind, the plan says so once with options (cut scope, extend, add a work window); Sancho never carries the message (D32). Doc 10 §10.3.

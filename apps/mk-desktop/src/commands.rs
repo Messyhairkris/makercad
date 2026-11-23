@@ -39,6 +39,22 @@ impl Units {
         [Units::Mm, Units::In].into_iter().find(|u| u.key() == key)
     }
 
+    /// The measuring system a document in these units keeps its lengths in (D34).
+    pub fn system(self) -> mk_units::system::System {
+        match self {
+            Units::Mm => mk_units::system::System::Metric,
+            Units::In => mk_units::system::System::Imperial,
+        }
+    }
+
+    /// The units that go with a document's measuring system.
+    pub fn from_system(system: mk_units::system::System) -> Units {
+        match system {
+            mk_units::system::System::Metric => Units::Mm,
+            mk_units::system::System::Imperial => Units::In,
+        }
+    }
+
     /// A person's height or a big size: "1.68 m" or "5 ft 6 in".
     pub fn height(self, mm: f64) -> String {
         match self {
@@ -878,6 +894,11 @@ mod tests {
             assert_eq!(Units::from_key(u.key()), Some(u));
         }
         assert_eq!(Units::from_key("cubits"), None);
+        for u in [Units::Mm, Units::In] {
+            assert_eq!(Units::from_system(u.system()), u);
+        }
+        assert_eq!(Units::Mm.system(), mk_units::system::System::Metric);
+        assert_eq!(Units::In.system(), mk_units::system::System::Imperial);
         assert_eq!(Units::Mm.height(1680.0), "1.68 m");
         assert_eq!(Units::In.height(1680.0), "5 ft 6 in");
         assert_eq!(Units::In.height(1829.0), "6 ft 0 in");

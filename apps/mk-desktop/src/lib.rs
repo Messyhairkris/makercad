@@ -16,6 +16,7 @@ mod icon_data;
 pub mod icons;
 pub mod probe;
 pub mod project_file;
+pub mod quantity;
 pub mod quest_screen;
 pub mod sancho;
 pub mod scale_figure;
@@ -78,6 +79,9 @@ pub struct Launch {
     /// With `--workshop` or `--quest`: also open the "when can you use it?" form on a tool
     /// (`--when`, for screenshots and reviews).
     pub when: bool,
+    /// With `--quest`: a size typed in feet and inches on the sizes step, not yet confirmed
+    /// (`--typed`, for screenshots and reviews).
+    pub typed: bool,
 }
 
 /// What `--spin` measured: the time of each frame (egui's input time), once the view has settled.
@@ -296,6 +300,9 @@ impl MakerApp {
             if app.launch.when {
                 quest.fill_days_sample();
             }
+            if app.launch.typed {
+                quest.fill_typed_sample();
+            }
             quest.go_to(step.saturating_sub(1));
             app.quest = Some(quest);
             app.screen = Screen::Quest;
@@ -345,6 +352,15 @@ impl MakerApp {
         });
     }
 
+    /// The units lengths are shown in now: the open project's own measuring system (D34), or
+    /// the default for new projects when none is open or the project has not said.
+    fn units_now(&self) -> Units {
+        self.project
+            .as_ref()
+            .and_then(project_file::Project::units)
+            .map_or(self.units, Units::from_system)
+    }
+
     /// Saves the open design as a project file (Ctrl+S); its first save makes the project.
     /// Returns what to tell the person.
     fn save_project(&mut self) -> String {
@@ -357,7 +373,11 @@ impl MakerApp {
         };
         if self.project.is_none() {
             match project_file::Project::new(&design.name, design.about.as_deref().unwrap_or("")) {
-                Ok(project) => self.project = Some(project),
+                Ok(mut project) => {
+                    // A new project measures in what new projects start from.
+                    project.set_units(self.units.system());
+                    self.project = Some(project);
+                }
                 Err(e) => return format!("Not saved: {e}"),
             }
         }
@@ -473,7 +493,12 @@ impl MakerApp {
                 }
             }
             Act::SetLook(look) => self.look = look,
-            Act::SetUnits(units) => self.units = units,
+            // An open project measures in its own system (D34): the choice is its. With none
+            // open it is the default new projects start from.
+            Act::SetUnits(units) => match self.project.as_mut() {
+                Some(project) => project.set_units(units.system()),
+                None => self.units = units,
+            },
             Act::Later(l) if l.phase == "now" => say(format!("{}: {}", l.what, l.note), 6.0),
             Act::Later(l) => say(format!("{} comes in {}. {}", l.what, l.phase, l.note), 7.0),
             Act::Tab(env) => {
@@ -796,6 +821,7 @@ impl MakerApp {
 
     fn windows(&mut self, ctx: &egui::Context) {
         let mut settings_open = self.settings_open;
+        let units_now = self.units_now();
         egui::Window::new("Settings")
             .open(&mut settings_open)
             .collapsible(false)
@@ -815,7 +841,19 @@ impl MakerApp {
                 });
                 ui.add_space(8.0);
                 ui.label(RichText::new("Sizes in").strong());
+                // A project measures in its own system; new projects start from the default.
+                if let Some(project) = self.project.as_mut() {
+                    ui.horizontal(|ui| {
+                        ui.label("This project");
+                        for (units, name) in [(Units::Mm, "millimetres"), (Units::In, "inches")] {
+                            if ui.selectable_label(units_now == units, name).clicked() {
+                                project.set_units(units.system());
+                            }
+                        }
+                    });
+                }
                 ui.horizontal(|ui| {
+                    ui.label("New projects");
                     for (units, name) in [(Units::Mm, "millimetres"), (Units::In, "inches")] {
                         if ui.selectable_label(self.units == units, name).clicked() {
                             self.units = units;
@@ -1102,7 +1140,8 @@ impl eframe::App for MakerApp {
             .and_then(design::Design::sancho_height_mm);
         {
             let status = shell::StatusModel {
-                units: self.units,
+                units: self.units_now(),
+                document: self.project.is_some(),
                 sancho_mm,
                 backend: &backend,
                 details: &details,
@@ -1225,6 +1264,7 @@ impl MakerApp {
         });
         project.intent.budget = created.budget.clone();
         project.manifest.environments = created.environments.clone();
+        project.set_units(created.units);
         project.others.push((
             quest_screen::INVENTORY_ENTRY.to_string(),
             created.inventory.clone(),

@@ -1,4 +1,9 @@
 //! Lengths for makers: millimetres inside; inches, feet, fractions and lumber sizes outside.
+//!
+//! `system` is the document's measuring system (D34): a typed length read and put into it. It is
+//! used as `mk_units::system::{System, read, show, keep}`, not re-exported here.
+
+pub mod system;
 
 /// A unit a length can be typed in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

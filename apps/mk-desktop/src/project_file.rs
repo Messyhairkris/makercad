@@ -13,6 +13,7 @@ use mk_project::container::Limits;
 use mk_project::layout;
 use mk_project::maker;
 use mk_project::project::{Intent, Manifest};
+use mk_units::system::System;
 
 /// A project file's extension.
 pub const EXTENSION: &str = "maker";
@@ -20,6 +21,9 @@ pub const EXTENSION: &str = "maker";
 pub const DESIGN_ENTRY: &str = "designs/d1.sc";
 /// The journal (doc 10 section 10.4); empty until the journal is wired in.
 pub const JOURNAL_ENTRY: &str = "log/journal.jsonl";
+/// What the document itself says, apart from its intent: the measuring system it keeps its
+/// lengths in (D34). Additive: a project without it measures in the app's default.
+pub const DOCUMENT_ENTRY: &str = "project/document.json";
 /// The environment every project has.
 const DESIGN_ENV: &str = "design";
 
@@ -163,6 +167,32 @@ impl Project {
             intent,
             others: vec![(JOURNAL_ENTRY.into(), Vec::new())],
         })
+    }
+
+    /// The measuring system this document keeps its lengths in, when it says (an older project,
+    /// or a file whose note cannot be read, says nothing: the app's default stands).
+    pub fn units(&self) -> Option<System> {
+        let (_, bytes) = self.others.iter().find(|(n, _)| n == DOCUMENT_ENTRY)?;
+        let note: serde_json::Value = serde_json::from_slice(bytes).ok()?;
+        System::from_key(note.get("units")?.as_str()?)
+    }
+
+    /// Sets the measuring system. Lengths are millimetres underneath, so nothing else changes:
+    /// only how they are written and read. Any other thing the document note holds is kept.
+    pub fn set_units(&mut self, system: System) {
+        let existing = self
+            .others
+            .iter()
+            .find(|(n, _)| n == DOCUMENT_ENTRY)
+            .and_then(|(_, bytes)| serde_json::from_slice::<serde_json::Value>(bytes).ok())
+            .filter(serde_json::Value::is_object);
+        let mut note = existing.unwrap_or_else(|| serde_json::json!({ "version": 1 }));
+        note["units"] = serde_json::Value::from(system.key());
+        let bytes = serde_json::to_vec_pretty(&note).unwrap_or_default();
+        match self.others.iter_mut().find(|(n, _)| n == DOCUMENT_ENTRY) {
+            Some((_, old)) => *old = bytes,
+            None => self.others.push((DOCUMENT_ENTRY.to_string(), bytes)),
+        }
     }
 
     /// The bytes of the project file holding `design` (SolidCraft design bytes).
@@ -327,6 +357,71 @@ mod tests {
         assert!(!loaded.recovered);
         assert_eq!(loaded.changed_outside, 0);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_project_says_its_measuring_system_and_keeps_saying_it() {
+        let dir = scratch("units");
+        let mut project = Project::new("Shelf", "A shelf").unwrap();
+        assert_eq!(project.units(), None, "a new project has not said yet");
+        project.set_units(System::Imperial);
+        assert_eq!(project.units(), Some(System::Imperial));
+        project.set_units(System::Metric);
+        assert_eq!(project.units(), Some(System::Metric));
+        project.set_units(System::Imperial);
+        assert_eq!(
+            project
+                .others
+                .iter()
+                .filter(|(n, _)| n == DOCUMENT_ENTRY)
+                .count(),
+            1,
+            "setting it again replaces the note, never adds a second"
+        );
+        project.save(&dir, b"design").unwrap();
+        let loaded = open(&dir, "Shelf.maker").unwrap();
+        assert_eq!(loaded.project.units(), Some(System::Imperial));
+        assert_eq!(loaded.changed_outside, 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_document_note_that_cannot_be_read_says_nothing_and_a_newer_ones_other_words_stay() {
+        let mut project = Project::new("Shelf", "").unwrap();
+        for bad in [
+            &b"not json"[..],
+            b"[]",
+            b"{}",
+            br#"{"units": 3}"#,
+            br#"{"units": "cubits"}"#,
+        ] {
+            project.others.retain(|(n, _)| n != DOCUMENT_ENTRY);
+            project.others.push((DOCUMENT_ENTRY.into(), bad.to_vec()));
+            assert_eq!(project.units(), None, "{}", String::from_utf8_lossy(bad));
+        }
+        // Changing it leaves what a newer MakerCAD wrote beside "units" alone.
+        project.others.retain(|(n, _)| n != DOCUMENT_ENTRY);
+        project.others.push((
+            DOCUMENT_ENTRY.into(),
+            br#"{"version": 2, "grid": "fine", "units": "metric"}"#.to_vec(),
+        ));
+        project.set_units(System::Imperial);
+        let (_, bytes) = project
+            .others
+            .iter()
+            .find(|(n, _)| n == DOCUMENT_ENTRY)
+            .unwrap();
+        let note: serde_json::Value = serde_json::from_slice(bytes).unwrap();
+        assert_eq!(note["units"], "imperial");
+        assert_eq!(note["grid"], "fine");
+        assert_eq!(note["version"], 2);
+        // A note that is not an object is replaced, not patched.
+        project.others.retain(|(n, _)| n != DOCUMENT_ENTRY);
+        project
+            .others
+            .push((DOCUMENT_ENTRY.into(), b"[1]".to_vec()));
+        project.set_units(System::Metric);
+        assert_eq!(project.units(), Some(System::Metric));
     }
 
     #[test]

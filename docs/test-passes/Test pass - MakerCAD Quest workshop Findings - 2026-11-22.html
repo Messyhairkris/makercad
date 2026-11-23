@@ -221,7 +221,7 @@ const ITEMS = [
   "n": "02",
   "t": "Use my workshop, and what stays in the project (new)",
   "time": "~10 min",
-  "note": "Your rule (decision D30): tools and materials are <b>global</b> (your workshop, for every project) or <b>local</b> (this project only, say a board bought for the task). The workshop is a SQLite file, <code>%LOCALAPPDATA%\\MakerCAD\\library.db</code>: one per person, not per project. Opening the Quest makes an empty one if there is none. To try it without touching that file, open a Command Prompt in the repo folder and run:<br><code>python tools\\make_sample_library.py %TEMP%\\sample-library.db</code><br><code>set MAKERCAD_LIBRARY=%TEMP%\\sample-library.db</code><br><code>third_party\\solidcraft\\target\\debug\\makercad.exe</code><br>The sample holds 14 tools (10 owned, 2 shared, 1 wishlist, 1 at a makerspace) and 3 material lines. Two of the tools are only there some days (D31, your multimeter-on-weekends example): the soldering iron on weekends (\"at Sam's\") and the track saw on Tuesdays and Thursdays. (There is no multimeter in my list of 67 tool kinds yet, so I used the soldering iron.) Do not run the script against <code>library.db</code> itself: it replaces the file.",
+  "note": "Your rule (decision D30): tools and materials are <b>global</b> (your workshop, for every project) or <b>local</b> (this project only, say a board bought for the task). The workshop is a SQLite file, <code>%LOCALAPPDATA%\\MakerCAD\\library.db</code>: one per person, not per project. Opening the Quest makes an empty one if there is none. To try it without touching that file, open a Command Prompt in the repo folder and run:<br><code>python tools\\make_sample_library.py %TEMP%\\sample-library.db</code><br><code>set MAKERCAD_LIBRARY=%TEMP%\\sample-library.db</code><br><code>third_party\\solidcraft\\target\\debug\\makercad.exe</code><br>The sample holds 14 tools (10 owned, 2 shared, 1 wishlist, 1 at a makerspace) and 3 material lines. Two of the tools are only there some days (D31, your multimeter-on-weekends example): the soldering iron on weekends (\"at Sam's\") and the track saw on Tuesdays and Thursdays. (There is no multimeter in the tool list and, since you said a small list of what most people have is enough, I am not adding electronics gear; I used the soldering iron.) Do not run the script against <code>library.db</code> itself: it replaces the file.",
   "items": [
    {
     "id": "w_tools",
@@ -264,6 +264,41 @@ const ITEMS = [
     "isnew": 1,
     "d": "On the tools step type <b>band saw</b> and Add; on the materials step type <b>2 yards 500D Cordura</b> and Add. Look at the chips and rows, then make the project (Skip to designing is fine).",
     "e": "The band saw chip has a coral outline (the workshop's tools are filled); hovering it says \"Only for this project. Click to say when you can use it, or to take it out.\"; under the chips: \"... the 1 with an outline are only for this project. Keep your workshop up to date in My workshop.\" The Cordura row says \"only for this project\" in coral; the other rows say \"your workshop\". After making the project the notice ends \"1 material line is only for this project; what is left can be offered to your workshop when it is finished.\" Your workshop must NOT have gained the band saw or the Cordura: check in My workshop (next section). This is your D30 rule; I checked it with a unit test and screenshots only."
+   },
+   {
+    "id": "m_system",
+    "t": "The sizes step asks which system the project measures in",
+    "isnew": 1,
+    "d": "Start something new, go to step 3 (<b>Where does it need to fit?</b>). Look at the top, then press <b>Imperial (inches)</b>, then <b>Metric (millimetres)</b> again.",
+    "e": "A line \"This project measures in\" with two choices, Metric (millimetres) and Imperial (inches); the one in use is highlighted, and it starts from the app's setting (millimetres unless you changed it). Under it: \"Type a size any way you like (millimetres, inches, feet, fractions); it is turned into this when you press Enter.\" This is your D34: the document has a measuring system and everything typed into it is turned into it."
+   },
+   {
+    "id": "m_convert",
+    "t": "A size typed another way is shown in the project's system, then kept in it",
+    "isnew": 1,
+    "d": "Pick <b>I'll type sizes</b>. In <b>Its longest size</b> type <b>5 ft 6 in</b> and do not press Enter yet. Look under the box. Then press Enter. Try the same with <b>120 cm</b>, <b>1.2 m</b>, <b>5'-6\"</b>, <b>3 1/2 in</b> and a bare <b>1200</b>.",
+    "e": "In a metric project, before Enter: \"That is 1676.4 mm. Press Enter to keep it.\" and a line saying which scale that makes. After Enter the box itself reads <b>1676.4 mm</b> and the line says \"Kept as 1676.4 mm.\" (120 cm becomes 1200 mm, 1.2 m the same, 3 1/2 in becomes 88.9 mm, and a bare 1200 is 1200 mm because a bare number is in the project's own unit.) Clicking away from the box confirms it too."
+   },
+   {
+    "id": "m_imperial",
+    "t": "In an imperial project the same typing comes out in inches and fractions",
+    "isnew": 1,
+    "d": "Press <b>Imperial (inches)</b>. The size box should change by itself. Then type <b>10 mm</b> and read the line under the box. Press Enter. Press <b>Metric (millimetres)</b> again.",
+    "e": "Switching system rewrites the size already there as the same length (1676.4 mm becomes 66\"). For 10 mm: \"That is 25/64\", to the nearest 1/64\". Press Enter to keep it.\" After Enter the box reads 25/64\" (which is 9.92 mm, not 10: what you see is what is kept, and I say so before it happens). Back in metric the box reads 9.92 mm. Is 1/64\" the right precision? (Your call, last section.)"
+   },
+   {
+    "id": "m_unreadable",
+    "t": "What cannot be read says why",
+    "isnew": 1,
+    "d": "In the size box type <b>a lot</b>, then <b>3/0</b>, then <b>-4</b>, pressing Enter after each.",
+    "e": "\"I can't read that as a length yet (try 1200 mm, 120 cm or 1.2 m).\" (inches: \"try 48 in, 4 ft or 3 1/2\"\"), then \"A fraction can't have 0 below the line.\", then \"A length can't be below zero.\" The text you typed stays as you typed it; nothing is changed or lost."
+   },
+   {
+    "id": "m_status",
+    "t": "The project keeps its system, and the status bar changes it",
+    "isnew": 1,
+    "d": "Make the project (Skip to designing is fine). Look at the bottom right: hover <b>in</b> and <b>mm</b>, press <b>in</b>, then save with Ctrl+S, go to the opening screen and open the project again. Open <b>Preferences</b> (Settings) and look at \"Sizes in\".",
+    "e": "The hover says \"This project measures in millimetres\" (or inches), and pressing <b>in</b> changes this project, not your default: Sancho's height in the bar becomes feet and inches. After saving and opening again it is still inches. Preferences has two rows, \"This project\" (only while one is open) and \"New projects\" (the default the Quest starts from). Everything underneath is still millimetres, so changing system later changes how lengths are written and read, not the lengths."
    }
   ]
  },
@@ -478,7 +513,7 @@ const ITEMS = [
     "t": "The cloud checks are green",
     "isnew": 0,
     "d": "Open github.com/Messyhairkris/makercad/actions and look at the newest runs.",
-    "e": "Runs #24 to #30 finished green (both the gates and the Windows build). The newest run is the tool-days work, and I had not seen it finish when I wrote this, so look at it first. Every run builds a test <code>makercad.exe</code> you can download."
+    "e": "Runs #24 to #31 finished green (both the gates and the Windows build). The newest run is the measuring-system work, and I had not seen it finish when I wrote this, so look at it first. Every run builds a test <code>makercad.exe</code> you can download."
    }
   ]
  },
@@ -501,21 +536,28 @@ const ITEMS = [
   "n": "09",
   "t": "Your call",
   "time": "~5 min",
-  "note": "Decisions only you can make. The numbers are real; I have not tucked a recommendation into the question. Already settled by your direction (D30, D31): a part's material is picked from the project's list of materials, which is the workshop's global ones plus the project's own local ones; I will build that when the Findings panel is wired to your real design. Local tools are offered at the end of a project too, and a tool can have days it is available.",
+  "note": "Decisions only you can make. The numbers are real; I have not tucked a recommendation into the question. Already settled by your direction (D30 to D34): a part's material is picked from the project's list of materials, which is the workshop's global ones plus the project's own local ones (I will build that when the Findings panel is wired to your real design); local tools are offered at the end of a project too; a tool can have days it is available, and when a plan uses that it shows it on the plan, never through Sancho (D32); the tool list stays small and made of what most people own (D33); and a project measures in one system, with everything typed into it turned into that system (D34).",
   "items": [
    {
-    "id": "y_tool_days_plan",
-    "t": "What should a tool's days do to a plan?",
+    "id": "y_precision",
+    "t": "Is 1/64 of an inch (and 0.01 mm) the right precision?",
     "isnew": 1,
-    "d": "A tool can now be there only some days (a multimeter at weekends). Today that is shown and kept, and the code can say \"N days until you can use it\", but nothing yet uses it.",
-    "e": "Options: (a) leave it as information; (b) when a plan step needs a tool you only have some days, Sancho says so (\"this step needs the soldering iron: you have it on weekends, so the next day is Saturday\"); (c) the plan also arranges steps so the ones needing that tool fall on its days. (b) is small; (c) needs a plan to exist first. Which, and is that the thing you meant by conditions?"
+    "d": "An imperial project keeps lengths to 1/64\", a metric one to a hundredth of a millimetre. The rounding is said before you confirm it.",
+    "e": "1/64\" is about 0.4 mm, so a length typed in millimetres can move by up to 0.2 mm when it is kept in an imperial project (10 mm becomes 9.92 mm). Options: (a) keep it; (b) each project chooses 1/16, 1/32, 1/64 or decimal inches; (c) imperial keeps decimals when the typed length is not a fraction. Which?"
    },
    {
-    "id": "y_multimeter",
-    "t": "My tool list has no multimeter",
+    "id": "y_findings_name",
+    "t": "Should the Findings panel still carry Sancho's name?",
     "isnew": 1,
-    "d": "Type <b>multimeter</b> in My workshop, Your tools.",
-    "e": "\"I don't know 'multimeter' yet.\" The list is 67 kinds from the design (woodworking first); electronics has the soldering iron and little else. Adding kinds means adding rows to the tables the list is generated from, and the capability each tool gives (so a plan knows what it can measure). Should I have the Crew draft an electronics set (multimeter, oscilloscope, bench supply, hot-air station...) for you to cut down?"
+    "d": "Open the Findings panel (Ctrl+K, \"Show the findings\") and look at the Quest's review card, which has a box headed \"Sancho noticed\".",
+    "e": "You said Sancho handling alert-type messages would hurt him as a character (D32). A findings panel is an alert channel by nature: it lists what is wrong, worst first. Today it is called Sancho's Findings panel and the Quest has the \"Sancho noticed\" hints. Options: (a) rename the panel plainly \"Findings\" and keep Sancho only as a figure who reacts; (b) keep his name on the panel and the hints, as friendly framing; (c) rename the panel but keep the Quest's hints in his voice, since they are suggestions, not warnings. I have changed nothing here. Which?"
+   },
+   {
+    "id": "y_instruments",
+    "t": "Do measuring tools count as tools?",
+    "isnew": 1,
+    "d": "You said a tool is anything that can modify or refine a material. A tape measure, calipers or a level measure; they do not change the material. The phone camera, LiDAR and the projector do not either.",
+    "e": "I left them in because a plan needs to know you can measure. Options: (a) keep them in the tool list; (b) a separate short \"Measuring\" list next to the tools, in the same walkthrough step. Which? And pliers, an adjustable wrench and a pencil are not in the list yet: add them to the Basic household kit? (It means a new revision of the tool table; I would not do it without your yes.)"
    },
    {
     "id": "y_finished",

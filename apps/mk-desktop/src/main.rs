@@ -3,7 +3,7 @@
 //! ```text
 //! makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS]
 //!          [--tab design|stock|plan|build|space|share]] [--quest STEP]
-//!          [--findings dresser|sound] [--workshop STEP] [--finish] [--when] [--search TEXT]
+//!          [--findings dresser|sound] [--workshop STEP] [--finish] [--when] [--typed] [--search TEXT]
 //!          [--msaa 1|2|4] [--windowed] [--screenshot PATH]
 //!          [--look daydream|pastel|night-workshop] [--size WxH]
 //! ```
@@ -19,7 +19,8 @@
 //! `--workshop N` opens "My workshop" (the walkthrough for the global tools and materials) at step
 //! N (1 to 3); `--finish` opens a sample project's end-of-project offer of leftover materials and
 //! tools; `--when` (with `--workshop` or `--quest`) also opens the "when can you use it?" form on a
-//! tool; `--search` opens command
+//! tool; `--typed` (with `--quest`) types a size in feet and inches on the sizes step, to show it
+//! being turned into the project's measuring system; `--search` opens command
 //! search with TEXT typed; `--msaa` sets the view's anti-aliasing samples per pixel (by default 1
 //! while the view moves, and a still view is drawn once supersampled); `--windowed` does not
 //! maximize. `--screenshot` draws the window,
@@ -48,6 +49,7 @@ struct Args {
     workshop: Option<usize>,
     finish: bool,
     when: bool,
+    typed: bool,
     search: Option<String>,
     msaa: Option<u32>,
     windowed: bool,
@@ -57,7 +59,7 @@ struct Args {
 }
 
 const USAGE: &str = "usage: makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS] \
-                     [--tab design|stock|plan|build|space|share]] [--quest STEP] [--findings dresser|sound] [--workshop STEP] [--finish] [--when] [--search TEXT] [--msaa 1|2|4] [--windowed] \
+                     [--tab design|stock|plan|build|space|share]] [--quest STEP] [--findings dresser|sound] [--workshop STEP] [--finish] [--when] [--typed] [--search TEXT] [--msaa 1|2|4] [--windowed] \
                      [--screenshot PATH] [--look daydream|pastel|night-workshop] [--size WxH]";
 
 fn parse_args() -> Result<Args, String> {
@@ -74,6 +76,7 @@ fn parse_args() -> Result<Args, String> {
         workshop: None,
         finish: false,
         when: false,
+        typed: false,
         search: None,
         msaa: None,
         windowed: false,
@@ -123,6 +126,7 @@ fn parse_args() -> Result<Args, String> {
             }
             "--finish" => a.finish = true,
             "--when" => a.when = true,
+            "--typed" => a.typed = true,
             "--search" => a.search = Some(value()?),
             "--msaa" => {
                 let v = value()?;
@@ -233,6 +237,7 @@ fn main() {
         workshop: args.workshop,
         finish: args.finish,
         when: args.when,
+        typed: args.typed,
     };
     let result = eframe::run_native(
         "MakerCAD",
