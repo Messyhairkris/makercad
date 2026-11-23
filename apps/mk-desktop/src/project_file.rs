@@ -121,6 +121,20 @@ pub fn file_name(name: &str) -> String {
     }
 }
 
+/// A file name for a new project called `name` that no file in `dir` has yet: "Desk.maker",
+/// else "Desk 2.maker", "Desk 3.maker" and so on, so a new project never replaces an old one.
+pub fn free_file_name(dir: &Path, name: &str) -> String {
+    let first = file_name(name);
+    if !dir.join(&first).exists() {
+        return first;
+    }
+    let base = stem(&first).to_string();
+    (2..10_000)
+        .map(|n| file_name(&format!("{base} {n}")))
+        .find(|candidate| !dir.join(candidate).exists())
+        .unwrap_or(first)
+}
+
 /// One open project: the file it came from or goes to, and what it holds besides the design.
 #[derive(Debug, Clone)]
 pub struct Project {
@@ -273,6 +287,18 @@ mod tests {
         ));
         let _ = fs::remove_dir_all(&dir);
         dir
+    }
+
+    #[test]
+    fn a_new_project_never_takes_an_old_ones_file() {
+        let dir = scratch("free");
+        fs::create_dir_all(&dir).unwrap();
+        assert_eq!(free_file_name(&dir, "Desk"), "Desk.maker");
+        fs::write(dir.join("Desk.maker"), b"old").unwrap();
+        assert_eq!(free_file_name(&dir, "Desk"), "Desk 2.maker");
+        fs::write(dir.join("Desk 2.maker"), b"old").unwrap();
+        assert_eq!(free_file_name(&dir, "Desk"), "Desk 3.maker");
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

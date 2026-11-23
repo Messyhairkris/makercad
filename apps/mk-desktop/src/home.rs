@@ -171,7 +171,8 @@ pub fn show(ui: &mut Ui, m: &HomeModel<'_>) -> Option<HomeAction> {
     action
 }
 
-fn paint_background(ui: &Ui, p: &Palette) {
+/// The look's background, top colour fading to the bottom one (the Quest uses it too).
+pub(crate) fn paint_background(ui: &Ui, p: &Palette) {
     let r = ui.max_rect();
     let mut mesh = Mesh::default();
     mesh.colored_vertex(r.left_top(), p.bg_top);

@@ -15,6 +15,7 @@ mod icon_data;
 pub mod icons;
 pub mod probe;
 pub mod project_file;
+pub mod quest_screen;
 pub mod sancho;
 pub mod scale_figure;
 pub mod shell;
@@ -61,6 +62,9 @@ pub struct Launch {
     pub search: Option<String>,
     /// With `sample`: start on this environment's tab (`--tab`).
     pub tab: Option<Env>,
+    /// Open "Start something new" at this step (1 to 9) with a sample dresser's answers filled in
+    /// before it (`--quest`, for screenshots and reviews).
+    pub quest: Option<usize>,
 }
 
 /// What `--spin` measured: the time of each frame (egui's input time), once the view has settled.
@@ -104,6 +108,8 @@ impl Spin {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Screen {
     Home,
+    /// "Start something new".
+    Quest,
     Design,
 }
 
@@ -133,6 +139,8 @@ pub struct MakerApp {
     projects_dir: std::path::PathBuf,
     /// The project files in that folder, newest first: the opening screen's rows.
     listed: Vec<project_file::Listed>,
+    /// The Quest in progress ("Start something new").
+    quest: Option<quest_screen::NewProject>,
     spin: Spin,
     /// The environment tab in front.
     env: Env,
@@ -192,6 +200,7 @@ impl MakerApp {
             project: None,
             projects_dir: project_file::folder(),
             listed: Vec::new(),
+            quest: None,
             spin: Spin::default(),
             env: Env::Design,
             units,
@@ -215,6 +224,13 @@ impl MakerApp {
             if let Some(tab) = app.launch.tab {
                 app.env = tab;
             }
+        }
+        if let Some(step) = app.launch.quest {
+            let mut quest = quest_screen::NewProject::new(app.units != Units::Mm);
+            quest.fill_sample();
+            quest.go_to(step.saturating_sub(1));
+            app.quest = Some(quest);
+            app.screen = Screen::Quest;
         }
         if let Some(text) = app.launch.search.clone() {
             app.search.open_with(&text);
@@ -488,7 +504,9 @@ impl MakerApp {
                 None
             }
             HomeAction::StartNew => {
-                say("The Quest (Start something new) is the first screen of P1. Not built yet.")
+                self.quest = Some(quest_screen::NewProject::new(self.units != Units::Mm));
+                self.screen = Screen::Quest;
+                None
             }
             HomeAction::KeepGoing if !self.listed.is_empty() => {
                 Some((self.open_project(0), now + 6.0))
@@ -836,6 +854,8 @@ impl eframe::App for MakerApp {
 
         if design_open {
             self.design_screen(ui, now);
+        } else if self.screen == Screen::Quest && self.quest.is_some() {
+            self.quest_screen(ui, now);
         } else {
             self.home_screen(ui, &ctx, now);
         }
@@ -868,6 +888,92 @@ impl eframe::App for MakerApp {
 }
 
 impl MakerApp {
+    /// "Start something new": the Quest, until it is confirmed or cancelled.
+    fn quest_screen(&mut self, ui: &mut egui::Ui, now: f64) {
+        let palette = self.look.palette();
+        let Some(np) = self.quest.as_mut() else {
+            self.screen = Screen::Home;
+            return;
+        };
+        let action = egui::CentralPanel::default()
+            .frame(Frame::NONE)
+            .show(ui, |ui| quest_screen::show(ui, np, &palette))
+            .inner;
+        match action {
+            Some(quest_screen::QuestAction::Cancel) => {
+                self.quest = None;
+                self.screen = Screen::Home;
+            }
+            Some(quest_screen::QuestAction::Create) => {
+                let text = self.create_project(false);
+                self.notice = Some((text, now + 8.0));
+            }
+            Some(quest_screen::QuestAction::SkipToDesigning) => {
+                let text = self.create_project(true);
+                self.notice = Some((text, now + 8.0));
+            }
+            None => {}
+        }
+    }
+
+    /// Makes the project the Quest describes, saves it, and opens it on an empty design.
+    /// Returns what to tell the person.
+    fn create_project(&mut self, skip_rest: bool) -> String {
+        let Some(np) = self.quest.as_mut() else {
+            return "There is no new project to make.".into();
+        };
+        let created = match np.finish(skip_rest) {
+            Ok(created) => created,
+            Err(e) => return format!("Not made: {e}"),
+        };
+        let mut project = match project_file::Project::new(&created.name, &created.goal) {
+            Ok(project) => project,
+            Err(e) => return format!("Not made: {e}"),
+        };
+        project.file = project_file::free_file_name(&self.projects_dir, &created.name);
+        project.intent.deadline = created.deadline.map(|due| mk_project::project::Deadline {
+            due,
+            windows: Vec::new(),
+            milestones: Vec::new(),
+        });
+        project.intent.budget = created.budget.clone();
+        project.manifest.environments = created.environments.clone();
+        project.others.push((
+            quest_screen::INVENTORY_ENTRY.to_string(),
+            created.inventory.clone(),
+        ));
+        let empty = serde_json::json!({ "commands": [] });
+        let mut design = match design::Design::from_script(&created.name, &empty) {
+            Ok(design) => design,
+            Err(e) => return format!("Not made: the empty design did not start ({e})."),
+        };
+        design.about = Some(project.intent.goal.clone());
+        let saved = design
+            .design_bytes()
+            .and_then(|bytes| project.save(&self.projects_dir, &bytes));
+        let file = project.file.clone();
+        self.design = Some(design);
+        self.project = Some(project);
+        self.quest = None;
+        self.screen = Screen::Design;
+        self.env = Env::Design;
+        self.refresh_projects();
+        let mut text = match saved {
+            Ok(_) => format!("{} is made and saved as {file}.", created.name),
+            Err(e) => format!("{} is made, but not saved yet: {e}", created.name),
+        };
+        if let Some(scale) = created.scale {
+            text.push_str(&format!(" {} scale.", scale.name()));
+        }
+        if !created.outstanding.is_empty() {
+            text.push_str(&format!(
+                " {} questions are still open for later.",
+                created.outstanding.len()
+            ));
+        }
+        text
+    }
+
     /// The opening screen.
     fn home_screen(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, now: f64) {
         let palette = self.look.palette();
