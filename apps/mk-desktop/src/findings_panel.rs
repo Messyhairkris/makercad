@@ -304,6 +304,8 @@ fn derivation_ui(ui: &mut Ui, p: &Palette, finding: &Finding) {
             egui::Grid::new(("why", finding.what.as_str()))
                 .num_columns(2)
                 .spacing(vec2(10.0, 2.0))
+                // The default row height is a button's (44 px): these are plain labels.
+                .min_row_height(16.0)
                 .show(ui, |ui| {
                     for (label, value) in &d.inputs {
                         ui.label(RichText::new(label).size(12.0).color(p.muted));
