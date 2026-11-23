@@ -6,7 +6,8 @@ their own computer and a deadline.
 
 Status: **P1, the MakerCAD shell around SolidCraft's kernel**, started 2026-11-19. Nothing here
 is a product yet. Every claim about what works lives in [STATUS.md](STATUS.md) with the command
-that proves it.
+that proves it. **Picking this up? Start with [HANDOFF.md](HANDOFF.md)** (where things are, what is
+real, what is waiting on a decision).
 
 ## Test builds
 
