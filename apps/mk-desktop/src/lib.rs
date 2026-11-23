@@ -9,6 +9,7 @@
 pub mod commands;
 pub mod design;
 pub mod environments;
+pub mod findings_panel;
 pub mod graphics;
 pub mod home;
 mod icon_data;
@@ -65,6 +66,10 @@ pub struct Launch {
     /// Open "Start something new" at this step (1 to 9) with a sample dresser's answers filled in
     /// before it (`--quest`, for screenshots and reviews).
     pub quest: Option<usize>,
+    /// Open the Design workspace with the Findings panel showing the golden dresser's findings:
+    /// `Some(true)` with its five seeded faults, `Some(false)` without (`--findings`, for
+    /// screenshots and reviews).
+    pub findings: Option<bool>,
 }
 
 /// What `--spin` measured: the time of each frame (egui's input time), once the view has settled.
@@ -141,6 +146,8 @@ pub struct MakerApp {
     listed: Vec<project_file::Listed>,
     /// The Quest in progress ("Start something new").
     quest: Option<quest_screen::NewProject>,
+    /// Sancho's Findings panel, when shown (doc 07 section 7.4).
+    findings: Option<findings_panel::FindingsPanel>,
     spin: Spin,
     /// The environment tab in front.
     env: Env,
@@ -201,6 +208,7 @@ impl MakerApp {
             projects_dir: project_file::folder(),
             listed: Vec::new(),
             quest: None,
+            findings: None,
             spin: Spin::default(),
             env: Env::Design,
             units,
@@ -223,6 +231,18 @@ impl MakerApp {
             }
             if let Some(tab) = app.launch.tab {
                 app.env = tab;
+            }
+        }
+        if let Some(faulted) = app.launch.findings {
+            if app.design.is_none() {
+                app.open_example(0, 0.0);
+            }
+            if app.design.is_some() {
+                app.env = Env::Design;
+                let mut panel = findings_panel::FindingsPanel::golden(faulted);
+                // A screenshot shows one derivation open.
+                panel.open_why_for("structure.screw_through");
+                app.findings = Some(panel);
             }
         }
         if let Some(step) = app.launch.quest {
@@ -360,6 +380,16 @@ impl MakerApp {
             Act::Save => {
                 let text = self.save_project();
                 self.notice = Some((text, now + 6.0));
+            }
+            Act::Findings => {
+                if self.design.is_some() {
+                    self.env = Env::Design;
+                    self.screen = Screen::Design;
+                    self.findings = match self.findings {
+                        Some(_) => None,
+                        None => Some(findings_panel::FindingsPanel::golden(true)),
+                    };
+                }
             }
             Act::SetLook(look) => self.look = look,
             Act::SetUnits(units) => self.units = units,
@@ -642,6 +672,18 @@ impl MakerApp {
                     .resizable(false)
                     .frame(Frame::new().fill(p.panel).stroke(Stroke::new(1.0, p.line)))
                     .show(ui, |ui| acts.extend(shell::toolbox(ui, &mut kit)));
+                if let Some(findings) = self.findings.as_mut() {
+                    egui::Panel::right("findings")
+                        .exact_size(findings_panel::WIDTH)
+                        .resizable(false)
+                        .frame(
+                            Frame::new()
+                                .fill(p.bg2)
+                                .stroke(Stroke::new(1.0, p.line))
+                                .inner_margin(Margin::symmetric(12, 0)),
+                        )
+                        .show(ui, |ui| findings.show(ui, &p));
+                }
             }
         }
         let render_state = self.render_state.clone();

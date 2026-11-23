@@ -95,6 +95,8 @@ pub enum Act {
     About,
     /// Save the open design as a project file.
     Save,
+    /// Show or hide the Findings panel.
+    Findings,
     /// Not built yet.
     Later(Later),
 }
@@ -245,6 +247,14 @@ pub fn all(examples: &[(&'static str, &'static str)]) -> Vec<Command> {
             "sancho person human figure man woman people size scale hide show",
             "View",
             Act::Sancho,
+        )),
+        on_design(cmd(
+            "app.sancho",
+            "Show the findings",
+            "",
+            "findings problems faults warnings issues noticed mistakes check review panel",
+            "View",
+            Act::Findings,
         )),
         // Changes.
         key(

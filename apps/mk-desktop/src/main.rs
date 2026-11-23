@@ -2,9 +2,9 @@
 //!
 //! ```text
 //! makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS]
-//!          [--tab design|stock|plan|build|space|share]] [--quest STEP] [--search TEXT]
-//!          [--msaa 1|2|4] [--windowed] [--screenshot PATH] [--look daydream|pastel|night-workshop]
-//!          [--size WxH]
+//!          [--tab design|stock|plan|build|space|share]] [--quest STEP]
+//!          [--findings dresser|sound] [--search TEXT] [--msaa 1|2|4] [--windowed]
+//!          [--screenshot PATH] [--look daydream|pastel|night-workshop] [--size WxH]
 //! ```
 //!
 //! `--backend` picks the graphics backend for this start only; `--retest` forgets the backend
@@ -13,7 +13,9 @@
 //! on the plate alone, not the plate and Sancho; `--spin`: turn the view for SECONDS, print the
 //! frame times and close; `--tab`: start on that environment's tab); `--quest N` opens "Start
 //! something new" at step N (1 to 9) with a sample dresser's answers filled in before it, for
-//! screenshots and reviews; `--search` opens command
+//! screenshots and reviews; `--findings dresser` opens the Design workspace with Sancho's Findings
+//! panel showing the golden dresser's five seeded faults (`sound`: the same chest without them);
+//! `--search` opens command
 //! search with TEXT typed; `--msaa` sets the view's anti-aliasing samples per pixel (by default 1
 //! while the view moves, and a still view is drawn once supersampled); `--windowed` does not
 //! maximize. `--screenshot` draws the window,
@@ -38,6 +40,7 @@ struct Args {
     spin: Option<f64>,
     tab: Option<Env>,
     quest: Option<usize>,
+    findings: Option<bool>,
     search: Option<String>,
     msaa: Option<u32>,
     windowed: bool,
@@ -47,7 +50,7 @@ struct Args {
 }
 
 const USAGE: &str = "usage: makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS] \
-                     [--tab design|stock|plan|build|space|share]] [--quest STEP] [--search TEXT] [--msaa 1|2|4] [--windowed] \
+                     [--tab design|stock|plan|build|space|share]] [--quest STEP] [--findings dresser|sound] [--search TEXT] [--msaa 1|2|4] [--windowed] \
                      [--screenshot PATH] [--look daydream|pastel|night-workshop] [--size WxH]";
 
 fn parse_args() -> Result<Args, String> {
@@ -60,6 +63,7 @@ fn parse_args() -> Result<Args, String> {
         spin: None,
         tab: None,
         quest: None,
+        findings: None,
         search: None,
         msaa: None,
         windowed: false,
@@ -90,6 +94,14 @@ fn parse_args() -> Result<Args, String> {
                     return Err(format!("--quest {v} is out of range (step 1 to 9)"));
                 }
                 a.quest = Some(step);
+            }
+            "--findings" => {
+                let v = value()?;
+                a.findings = Some(match v.as_str() {
+                    "dresser" => true,
+                    "sound" => false,
+                    _ => return Err(format!("--findings dresser or sound, not {v}")),
+                });
             }
             "--search" => a.search = Some(value()?),
             "--msaa" => {
@@ -197,6 +209,7 @@ fn main() {
         search: args.search,
         tab: args.tab,
         quest: args.quest,
+        findings: args.findings,
     };
     let result = eframe::run_native(
         "MakerCAD",
