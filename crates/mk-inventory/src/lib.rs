@@ -14,11 +14,14 @@
 //! `library.rs` is the maker's own tools and materials in SQLite (doc 04 section 4.3: "global
 //! per user (`library.db`, SQLite) and snapshotted per project"), written by Claude. Desktop
 //! only: it is left out of the wasm32 build.
+//!
+//! `drift`: Inventory drift between a project's snapshot and the workshop library
 
 mod units {
     pub use mk_units::{nominal_lumber, parse_length, Unit};
 }
 
+pub mod drift;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod library;
 pub mod quickadd;

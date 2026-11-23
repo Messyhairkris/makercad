@@ -12,9 +12,12 @@
 //!
 //! `project`: the manifest (format version, environments, hash index) and the intent (name,
 //! goal, success criteria, deadline, budget, skill), with their rules and a new project's defaults.
+//!
+//! `stage`: MakerCAD's scale classes stage table (doc 05 section 5.5).
 
 pub mod atomic;
 pub mod container;
 pub mod layout;
 pub mod maker;
 pub mod project;
+pub mod stage;

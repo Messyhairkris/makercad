@@ -33,11 +33,23 @@
 //! a laser, a finish in an unventilated space, mains wiring at beginner skill, furniture that can
 //! tip over, and a wall-mounted part heavier than its anchor. Unsafe findings need one confirm
 //! (the ledger does that); a missing fact says nothing.
+//!
+//! `why`: Sancho's "Why?" derivations (doc 07 section 7.6): a finding's inputs, rule and source.
+//!
+//! `observations`: Sancho's early observations (doc 05 sections 5.2 and 5.4): rules over the goal, tools, materials and scale.
+//!
+//! `voice`: Sancho's Voice layer for the greeting (doc 07 sections 7.2 and 7.9).
+//!
+//! `toolbox`: The side toolbox's contents (doc 05 section 5.4): what is shown, in what order, and why.
 
 pub mod findings;
 pub mod interpret;
 pub mod memory;
+pub mod observations;
 pub mod rules_core;
 pub mod rules_safety;
 pub mod rules_structure;
 pub mod rules_tools;
+pub mod toolbox;
+pub mod voice;
+pub mod why;
