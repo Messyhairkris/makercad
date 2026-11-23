@@ -75,6 +75,9 @@ pub struct Launch {
     pub workshop: Option<usize>,
     /// Open a sample project's end-of-project offer over the Design workspace (`--finish`).
     pub finish: bool,
+    /// With `--workshop` or `--quest`: also open the "when can you use it?" form on a tool
+    /// (`--when`, for screenshots and reviews).
+    pub when: bool,
 }
 
 /// What `--spin` measured: the time of each frame (egui's input time), once the view has settled.
@@ -161,8 +164,8 @@ pub struct MakerApp {
     workshop_from: Screen,
     /// How many tools and material lines the workshop holds, for the opening screen.
     workshop_counts: Option<(usize, usize)>,
-    /// The end-of-project offer, when open: the project's local materials.
-    finishing: Option<Vec<workshop_screen::LeftOver>>,
+    /// The end-of-project offer, when open: the project's local materials and tools.
+    finishing: Option<workshop_screen::Leftovers>,
     spin: Spin,
     /// The environment tab in front.
     env: Env,
@@ -269,6 +272,20 @@ impl MakerApp {
             if let Some(e) = app.open_workshop(step.saturating_sub(1)) {
                 eprintln!("makercad: {e}");
             }
+            if app.launch.when {
+                // The form on the first tool that is only there some days, else the first tool.
+                if let Some(edit) = app.workshop.as_mut() {
+                    let id = edit
+                        .tools()
+                        .iter()
+                        .find(|t| !t.when.is_plain())
+                        .or(edit.tools().first())
+                        .map(|t| t.id);
+                    if let Some(id) = id {
+                        edit.edit_when(id);
+                    }
+                }
+            }
         }
         if app.launch.finish {
             app.sample_finish();
@@ -276,6 +293,9 @@ impl MakerApp {
         if let Some(step) = app.launch.quest {
             let mut quest = app.new_quest();
             quest.fill_sample();
+            if app.launch.when {
+                quest.fill_days_sample();
+            }
             quest.go_to(step.saturating_sub(1));
             app.quest = Some(quest);
             app.screen = Screen::Quest;
@@ -433,7 +453,7 @@ impl MakerApp {
                             .iter()
                             .find(|(name, _)| name == quest_screen::INVENTORY_ENTRY)
                     })
-                    .map(|(_, bytes)| workshop_screen::local_materials(bytes));
+                    .map(|(_, bytes)| workshop_screen::Leftovers::from_inventory(bytes));
                 match own {
                     None => {
                         self.notice = Some((
@@ -442,13 +462,14 @@ impl MakerApp {
                             now + 6.0,
                         ))
                     }
-                    Some(items) if items.is_empty() => {
+                    Some(left) if left.is_empty() => {
                         self.notice = Some((
-                            "This project has no materials of its own left to offer.".into(),
+                            "This project has no materials or tools of its own left to offer."
+                                .into(),
                             now + 6.0,
                         ))
                     }
-                    Some(items) => self.finishing = Some(items),
+                    Some(left) => self.finishing = Some(left),
                 }
             }
             Act::SetLook(look) => self.look = look,
@@ -613,8 +634,8 @@ impl MakerApp {
         }
     }
 
-    /// The end-of-project offer (D30): the finished project's own materials, to add to the
-    /// workshop.
+    /// The end-of-project offer (D30, D31): the finished project's own materials and tools, to
+    /// add to the workshop.
     fn finish_window(&mut self, ctx: &egui::Context, now: f64) {
         let p = self.look.palette();
         let Some(items) = self.finishing.as_mut() else {
@@ -669,11 +690,7 @@ impl MakerApp {
         }
         self.refresh_workshop_counts();
         let saved = self.save_project();
-        format!(
-            "{} material line{} added to your workshop. {saved}",
-            added.len(),
-            if added.len() == 1 { "" } else { "s" }
-        )
+        format!("{}. {saved}", added.words())
     }
 
     /// A sample project with a few materials of its own and the offer open on them, for
@@ -684,7 +701,12 @@ impl MakerApp {
         }
         let inventory = serde_json::json!({
             "version": 2,
-            "tools": [],
+            "tools": [
+                { "kind": "jigsaw", "name": "Jigsaw", "scope": "global" },
+                { "kind": "soldering_iron", "name": "Soldering iron", "scope": "local",
+                  "when": { "days": ["sat", "sun"], "note": "at Sam's" } },
+                { "kind": "band_saw", "name": "Band saw", "scope": "local" },
+            ],
             "materials": [
                 { "said": "15 pine 2x4s, 3 foot", "qty": 15, "scope": "global" },
                 { "said": "2 yards 500D Cordura", "qty": 2, "scope": "local" },
@@ -699,12 +721,16 @@ impl MakerApp {
                 .push((quest_screen::INVENTORY_ENTRY.to_string(), bytes.clone()));
             self.project = Some(project);
         }
-        let mut items = workshop_screen::local_materials(&bytes);
-        if let Some(first) = items.first_mut() {
+        let mut left = workshop_screen::Leftovers::from_inventory(&bytes);
+        if let Some(first) = left.materials.first_mut() {
             first.keep = true;
             first.left = 1;
         }
-        self.finishing = Some(items);
+        if let Some(first) = left.tools.first_mut() {
+            first.keep = true;
+            first.access = mk_inventory::taxonomy_data::Access::Shared;
+        }
+        self.finishing = Some(left);
     }
 
     fn status_line(&self) -> String {
@@ -1233,13 +1259,28 @@ impl MakerApp {
             ));
         }
         // What was typed into the Quest is the project's own (D30); say so once.
-        let own = workshop_screen::local_materials(&created.inventory).len();
-        if own > 0 {
+        let materials = workshop_screen::local_materials(&created.inventory).len();
+        let tools = workshop_screen::local_tools(&created.inventory).len();
+        let plural =
+            |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+        let own = match (materials, tools) {
+            (0, 0) => None,
+            (m, 0) => Some((plural(m, "material line", "material lines"), m)),
+            (0, t) => Some((plural(t, "tool", "tools"), t)),
+            (m, t) => Some((
+                format!(
+                    "{} and {}",
+                    plural(m, "material line", "material lines"),
+                    plural(t, "tool", "tools")
+                ),
+                m + t,
+            )),
+        };
+        if let Some((what, n)) = own {
             text.push_str(&format!(
-                " {own} material line{} {} only for this project; what is left can be offered to \
-                 your workshop when it is finished.",
-                if own == 1 { "" } else { "s" },
-                if own == 1 { "is" } else { "are" },
+                " {what} {} only for this project; what is left can be offered to your workshop \
+                 when it is finished.",
+                if n == 1 { "is" } else { "are" },
             ));
         }
         text

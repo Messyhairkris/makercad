@@ -178,7 +178,7 @@ const ITEMS = [
   "n": "01",
   "t": "Start something new (the Quest)",
   "time": "~15 min",
-  "note": "The first card on the opening screen. Nine questions, every one skippable; the right-hand card \"What your answers set up\" changes as you answer. The questions, the reading of your words and the scale guess are the Crew's modules; I drew the screen. I checked it with screenshots and 80 unit tests, not by using it for a real project, so this is the first real use.",
+  "note": "The first card on the opening screen. Nine questions, every one skippable; the right-hand card \"What your answers set up\" changes as you answer. The questions, the reading of your words and the scale guess are the Crew's modules; I drew the screen. I checked it with screenshots and 91 unit tests, not by using it for a real project, so this is the first real use.",
   "items": [
    {
     "id": "q_rail",
@@ -221,21 +221,35 @@ const ITEMS = [
   "n": "02",
   "t": "Use my workshop, and what stays in the project (new)",
   "time": "~10 min",
-  "note": "Your rule (decision D30): tools and materials are <b>global</b> (your workshop, for every project) or <b>local</b> (this project only, say a board bought for the task). The workshop is a SQLite file, <code>%LOCALAPPDATA%\\MakerCAD\\library.db</code>: one per person, not per project. Opening the Quest makes an empty one if there is none. To try it without touching that file, open a Command Prompt in the repo folder and run:<br><code>python tools\\make_sample_library.py %TEMP%\\sample-library.db</code><br><code>set MAKERCAD_LIBRARY=%TEMP%\\sample-library.db</code><br><code>third_party\\solidcraft\\target\\debug\\makercad.exe</code><br>The sample holds 13 tools (10 owned, 1 shared, 1 wishlist, 1 at a makerspace) and 3 material lines. Do not run the script against <code>library.db</code> itself: it replaces the file.",
+  "note": "Your rule (decision D30): tools and materials are <b>global</b> (your workshop, for every project) or <b>local</b> (this project only, say a board bought for the task). The workshop is a SQLite file, <code>%LOCALAPPDATA%\\MakerCAD\\library.db</code>: one per person, not per project. Opening the Quest makes an empty one if there is none. To try it without touching that file, open a Command Prompt in the repo folder and run:<br><code>python tools\\make_sample_library.py %TEMP%\\sample-library.db</code><br><code>set MAKERCAD_LIBRARY=%TEMP%\\sample-library.db</code><br><code>third_party\\solidcraft\\target\\debug\\makercad.exe</code><br>The sample holds 14 tools (10 owned, 2 shared, 1 wishlist, 1 at a makerspace) and 3 material lines. Two of the tools are only there some days (D31, your multimeter-on-weekends example): the soldering iron on weekends (\"at Sam's\") and the track saw on Tuesdays and Thursdays. (There is no multimeter in my list of 67 tool kinds yet, so I used the soldering iron.) Do not run the script against <code>library.db</code> itself: it replaces the file.",
   "items": [
    {
     "id": "w_tools",
     "t": "The tools step offers your workshop",
     "isnew": 1,
     "d": "Start something new, go to <b>Your tools</b> (step 4).",
-    "e": "\"Your workshop has 11 tools I know (2 more are on a wishlist, borrowed, or not known to me yet).\" and a button <b>Use my workshop</b>. (11 = the 10 owned plus the shared router; the wishlist drill press and the makerspace track saw are the 2.)"
+    "e": "\"Your workshop has 12 tools I know (2 more are on a wishlist, borrowed, or not known to me yet).\" and a button <b>Use my workshop</b>. (12 = the 10 owned plus the shared router and soldering iron; the wishlist drill press and the makerspace track saw are the 2.)"
    },
    {
     "id": "w_use",
     "t": "Using it lists the tools once",
     "isnew": 1,
     "d": "Press <b>Use my workshop</b>, then press it again if it is still there.",
-    "e": "Chips for the tools appear (Tape measure, Square, Clamps, Hand saw, Hammer, Screwdrivers, Drill driver, Jigsaw, Circular saw, Sander, Router). Clicking a chip removes it (\"Untick: I don't have this\"). Nothing is added twice. The button disappears once every workshop tool is listed."
+    "e": "Chips for the tools appear (Tape measure, Square, Clamps, Hand saw, Hammer, Screwdrivers, Drill driver, Jigsaw, Circular saw, Sander, Router, and <b>Soldering iron · weekends (at Sam's)</b>: a tool that is only there some days says which on its chip). Clicking a chip removes it. Nothing is added twice. The button disappears once every workshop tool is listed."
+   },
+   {
+    "id": "w_days_global",
+    "t": "A workshop tool's days show, and are changed in My workshop",
+    "isnew": 1,
+    "d": "Hover the <b>Soldering iron · weekends (at Sam's)</b> chip, then click it.",
+    "e": "\"From your workshop, available weekends (at Sam's). Click to leave it out of this project; change the days in My workshop.\" The chip is filled (a workshop tool), and clicking it just leaves the tool out of this project; there is no way to change its days here. Why: a project cannot change your workshop (D30), so a workshop tool's days are edited only in My workshop. Is that the right split, or should a project be able to say \"for this project I only have it on Saturdays\"?"
+   },
+   {
+    "id": "w_days_local",
+    "t": "A tool you type in has its own days",
+    "isnew": 1,
+    "d": "Type <b>band saw</b> and Add. Click its chip (the one with the outline). Press <b>Weekends</b>, then untick <b>Sun</b>, type <b>Dad's garage</b> in the box, and press <b>Save</b>.",
+    "e": "A window \"When can you use Band saw?\" with Any day, Weekends, Weekdays and seven day buttons (ticked ones coral), a box, a line \"Available: ...\", and Save, Cancel and \"Take it out of this project\". After Weekends then Sun unticked it reads \"Saturdays\", and after the note \"Saturdays (Dad's garage)\". After Save the chip reads \"Band saw · Saturdays (Dad's garage)\". Cancel keeps nothing; \"Take it out\" removes the chip. Try unticking the only ticked day: it stays ticked and says a tool needs at least one day. (Clicking an outlined chip used to remove it at once; now it opens this window first. Is the extra click a nuisance?)"
    },
    {
     "id": "w_materials",
@@ -249,7 +263,7 @@ const ITEMS = [
     "t": "What you type stays in the project (global and local)",
     "isnew": 1,
     "d": "On the tools step type <b>band saw</b> and Add; on the materials step type <b>2 yards 500D Cordura</b> and Add. Look at the chips and rows, then make the project (Skip to designing is fine).",
-    "e": "The band saw chip has a coral outline (the workshop's tools are filled); hovering it says \"Only for this project. Click to remove it.\"; under the chips: \"... the 1 with an outline are only for this project. Keep your workshop up to date in My workshop.\" The Cordura row says \"only for this project\" in coral; the other rows say \"your workshop\". After making the project the notice ends \"1 material line is only for this project; what is left can be offered to your workshop when it is finished.\" Your workshop must NOT have gained the band saw or the Cordura: check in My workshop (next section). This is your D30 rule; I checked it with a unit test and screenshots only."
+    "e": "The band saw chip has a coral outline (the workshop's tools are filled); hovering it says \"Only for this project. Click to say when you can use it, or to take it out.\"; under the chips: \"... the 1 with an outline are only for this project. Keep your workshop up to date in My workshop.\" The Cordura row says \"only for this project\" in coral; the other rows say \"your workshop\". After making the project the notice ends \"1 material line is only for this project; what is left can be offered to your workshop when it is finished.\" Your workshop must NOT have gained the band saw or the Cordura: check in My workshop (next section). This is your D30 rule; I checked it with a unit test and screenshots only."
    }
   ]
  },
@@ -264,7 +278,14 @@ const ITEMS = [
     "t": "Open it from the opening screen",
     "isnew": 1,
     "d": "Go Home. In the My workshop card press <b>Open workshop</b>. (Or Ctrl+K and type <b>workshop</b>.)",
-    "e": "A screen titled \"My workshop\" with three steps on the left (Your tools, Your materials, All set), \"Done\" top right, and \"What tools do you have?\" with the kit buttons (Basic household, Starter woodshop, ...), a box to type a tool, and 13 tools each with a dropdown (\"I own it\", the router \"Shared with me\", the drill press \"Wishlist\") and a ×."
+    "e": "A screen titled \"My workshop\" with three steps on the left (Your tools, Your materials, All set), \"Done\" top right, and \"What tools do you have?\" with the kit buttons (Basic household, Starter woodshop, ...), a box to type a tool, and 14 tools each with a dropdown (\"I own it\", the router \"Shared with me\", the drill press \"Wishlist\"), a days button (\"any day\" in grey for most; \"weekends (at Sam's)\" on the soldering iron; \"Tue and Thu (makerspace open evenings)\" on the track saw) and a ×."
+   },
+   {
+    "id": "ws_when",
+    "t": "Say which days you can use a tool",
+    "isnew": 1,
+    "d": "On the soldering iron press its <b>weekends</b> button. Press <b>Any day</b>, then <b>Weekdays</b>, then tick <b>Sat</b>, put <b>when I visit Sam</b> in the box and press <b>Save</b>.",
+    "e": "A window \"When can you use Soldering iron?\" with a line \"Available: ...\" that follows every click (\"any day\", then \"weekdays\", then \"every day except Sun\" once Sat is ticked, and with the note: \"every day except Sun (when I visit Sam)\"). After Save the button on its row says the same words and the screen says \"Soldering iron: ...\". Close and reopen My workshop: it is still there (it is kept in the library file). On the last step the sentence ends \"N tools are only there on some days.\""
    },
    {
     "id": "ws_add",
@@ -336,21 +357,28 @@ const ITEMS = [
   "n": "05",
   "t": "Finishing the project: what is left over (new)",
   "time": "~10 min",
-  "note": "Your rule: any materials left from a local project can be added to the workshop at the end. Today that is a command, because a project does not yet remember being finished: press Ctrl+K and type <b>finish</b>. To see it without making a project, start the exe with <code>--finish</code> (a sample project with three materials of its own). Local tools are not offered: you said materials; see Your call.",
+  "note": "Your rule: any materials left from a local project can be added to the workshop at the end. Today that is a command, because a project does not yet remember being finished: press Ctrl+K and type <b>finish</b>. To see it without making a project, start the exe with <code>--finish</code> (a sample project with three materials and two tools of its own). Tools are offered too (your answer on 2026-11-23), each with how you have it now and the days it came with.",
   "items": [
    {
     "id": "fin_open",
-    "t": "The offer lists only the project's own materials",
+    "t": "The offer lists the project's own tools and materials",
     "isnew": 1,
-    "d": "With the project you made in the last section open (one with the Cordura in it), Ctrl+K, <b>Finish the project</b>.",
-    "e": "A window \"Finish the project\": \"The project is finished. Anything left over?\", then the Cordura line (the materials that came from your workshop are NOT listed), each with a tick box and \"left:\" with a number that is greyed until the line is ticked, and \"Add to my workshop\" greyed until one is ticked, and \"Not now\". With --finish: three lines (Cordura, half sheet of plywood, 6 pine 1x4s), Cordura ticked with left: 1, and the button says \"Add 1 to my workshop\"."
+    "d": "With the project you made in the last section open (one with the band saw and the Cordura in it), Ctrl+K, <b>Finish the project</b>.",
+    "e": "A window \"Finish the project\": \"The project is finished. Anything left over?\", then \"Tools you got for this project\" with the band saw, then \"Materials with some left\" with the Cordura line (what came from your workshop is NOT listed). Each has a tick box; a tool has a dropdown for how you have it (greyed until ticked), a material a \"left:\" number (greyed until ticked). The button says \"Add to my workshop\", greyed until one is ticked, and \"Not now\". With --finish: two tools (Soldering iron, \"available: weekends (at Sam's)\", ticked and \"Shared with me\"; Band saw), three material lines (Cordura ticked with left: 1), and the button says \"Add 2 to my workshop\"."
    },
    {
     "id": "fin_add",
     "t": "Ticking and adding hands them to the workshop",
     "isnew": 1,
-    "d": "Tick the Cordura, set left to <b>1</b> (it starts at the number you listed), press <b>Add to my workshop</b>. Then open My workshop, Your materials.",
-    "e": "A message \"1 material line added to your workshop.\" followed by the save message. In My workshop a Cordura line is there with <b>1</b> beside it (the number left, not the number you bought). Ctrl+K, Finish the project again: \"This project has no materials of its own left to offer.\""
+    "d": "Tick the band saw and the Cordura, set left to <b>1</b> (it starts at the number you listed), press <b>Add to my workshop</b>. Then open My workshop, Your tools and Your materials.",
+    "e": "A message \"1 material line and 1 tool added to your workshop.\" followed by the save message. In My workshop a Cordura line is there with <b>1</b> beside it (the number left, not the number you bought) and a Band saw with \"I own it\" and \"any day\". Ctrl+K, Finish the project again: \"This project has no materials or tools of its own left to offer.\""
+   },
+   {
+    "id": "fin_tool_days",
+    "t": "A tool keeps its days when it joins the workshop",
+    "isnew": 1,
+    "d": "Start the exe with <code>--finish</code> (sample library set as before), press <b>Add</b> with the soldering iron ticked, then open My workshop, Your tools.",
+    "e": "The message says \"1 material line added to your workshop (1 tool was already there)\" (your sample library already has a soldering iron, so it is not added a second time and keeps the days it had). To see a tool come in with its days: start the exe plainly, open My workshop and remove the soldering iron, close it, then start it with <code>--finish</code> again (do not rerun make_sample_library: that puts the iron back) and press Add; the iron returns as \"Shared with me\" with \"weekends (at Sam's)\"."
    },
    {
     "id": "fin_notnow",
@@ -450,7 +478,7 @@ const ITEMS = [
     "t": "The cloud checks are green",
     "isnew": 0,
     "d": "Open github.com/Messyhairkris/makercad/actions and look at the newest runs.",
-    "e": "Runs #24, #25 and #26 finished green (both the gates and the Windows build); #27's gates were green when I last looked and its Windows build was still running. Every run builds a test <code>makercad.exe</code> you can download."
+    "e": "Runs #24 to #30 finished green (both the gates and the Windows build). The newest run is the tool-days work, and I had not seen it finish when I wrote this, so look at it first. Every run builds a test <code>makercad.exe</code> you can download."
    }
   ]
  },
@@ -473,14 +501,21 @@ const ITEMS = [
   "n": "09",
   "t": "Your call",
   "time": "~5 min",
-  "note": "Decisions only you can make. The numbers are real; I have not tucked a recommendation into the question. Already settled by your direction (D30): a part's material is picked from the project's list of materials, which is the workshop's global ones plus the project's own local ones; I will build that when the Findings panel is wired to your real design.",
+  "note": "Decisions only you can make. The numbers are real; I have not tucked a recommendation into the question. Already settled by your direction (D30, D31): a part's material is picked from the project's list of materials, which is the workshop's global ones plus the project's own local ones; I will build that when the Findings panel is wired to your real design. Local tools are offered at the end of a project too, and a tool can have days it is available.",
   "items": [
    {
-    "id": "y_local_tools",
-    "t": "Local tools at the end of a project",
+    "id": "y_tool_days_plan",
+    "t": "What should a tool's days do to a plan?",
     "isnew": 1,
-    "d": "You said the end-of-project offer is for remaining <b>materials</b>.",
-    "e": "A tool bought or borrowed for one project is local too (the outline in the Quest), and today it just stays in that project. Should the same offer list local tools (\"add to my workshop?\"), or materials only, as you said?"
+    "d": "A tool can now be there only some days (a multimeter at weekends). Today that is shown and kept, and the code can say \"N days until you can use it\", but nothing yet uses it.",
+    "e": "Options: (a) leave it as information; (b) when a plan step needs a tool you only have some days, Sancho says so (\"this step needs the soldering iron: you have it on weekends, so the next day is Saturday\"); (c) the plan also arranges steps so the ones needing that tool fall on its days. (b) is small; (c) needs a plan to exist first. Which, and is that the thing you meant by conditions?"
+   },
+   {
+    "id": "y_multimeter",
+    "t": "My tool list has no multimeter",
+    "isnew": 1,
+    "d": "Type <b>multimeter</b> in My workshop, Your tools.",
+    "e": "\"I don't know 'multimeter' yet.\" The list is 67 kinds from the design (woodworking first); electronics has the soldering iron and little else. Adding kinds means adding rows to the tables the list is generated from, and the capability each tool gives (so a plan knows what it can measure). Should I have the Crew draft an electronics set (multimeter, oscilloscope, bench supply, hot-air station...) for you to cut down?"
    },
    {
     "id": "y_finished",

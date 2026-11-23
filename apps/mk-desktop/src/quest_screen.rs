@@ -8,8 +8,11 @@
 //! Confirming the review (or "Skip to designing") gives a [`Created`]: the intent, the
 //! environments and the tools-and-materials snapshot (`project/inventory.json`).
 
+use std::collections::BTreeMap;
+
 use egui::{vec2, Align, CornerRadius, Frame, Key, Layout, Margin, RichText, Stroke, Ui};
 use mk_assist::interpret::{self, Interpretation, Why};
+use mk_inventory::availability::Availability;
 use mk_inventory::library::{Library, LibraryError};
 use mk_inventory::quickadd::{quick_add, Item, Kind};
 use mk_inventory::taxonomy;
@@ -19,6 +22,7 @@ use mk_project::project::{is_real_date, Budget, Date};
 use serde_json::json;
 
 use crate::theme::{Palette, ACCENT, PAPER, SANCHO_INK};
+use crate::workshop_screen::{when_to_json, when_window, WhenAction, WhenEditor};
 
 /// The entry name of the tools-and-materials snapshot (doc 03's layout).
 pub const INVENTORY_ENTRY: &str = "project/inventory.json";
@@ -115,6 +119,8 @@ pub fn library_path() -> Option<std::path::PathBuf> {
 pub struct Workshop {
     /// Tool kinds the maker has (owned or shared) that the taxonomy knows, without repeats.
     pub tools: Vec<&'static str>,
+    /// When those tools can be used, for the ones that are not simply there every day (D31).
+    pub tool_when: BTreeMap<&'static str, Availability>,
     /// Tools in the library that are not offered: a wishlist, a makerspace's or a rental, or a
     /// kind the taxonomy doesn't know.
     pub left_out: usize,
@@ -141,6 +147,9 @@ impl Workshop {
                 Some(known) if have => {
                     if !workshop.tools.contains(&known.id) {
                         workshop.tools.push(known.id);
+                        if !tool.when.is_plain() {
+                            workshop.tool_when.insert(known.id, tool.when.clone());
+                        }
                     }
                 }
                 _ => workshop.left_out += 1,
@@ -184,6 +193,11 @@ pub struct NewProject {
     pub size_text: String,
     /// Tool kind ids, in the order they were added.
     pub tools: Vec<&'static str>,
+    /// When this project's own tools can be used, for those not there every day (D31). The
+    /// workshop's tools keep theirs in the workshop.
+    pub tool_when: BTreeMap<&'static str, Availability>,
+    /// The tool whose days are being changed, and the form.
+    pub when_editing: Option<(&'static str, WhenEditor)>,
     pub tool_text: String,
     pub materials: Vec<Item>,
     pub material_text: String,
@@ -213,6 +227,8 @@ impl NewProject {
             fit: None,
             size_text: String::new(),
             tools: Vec::new(),
+            tool_when: BTreeMap::new(),
+            when_editing: None,
             tool_text: String::new(),
             materials: Vec::new(),
             material_text: String::new(),
@@ -281,6 +297,51 @@ impl NewProject {
         self.workshop.tools.contains(&kind)
     }
 
+    /// When a tool of this project can be used (D31): the workshop's say for its own tools, the
+    /// project's for the ones typed here. Every day when nothing was said.
+    pub fn tool_availability(&self, kind: &str) -> Availability {
+        let map = if self.tool_is_global(kind) {
+            &self.workshop.tool_when
+        } else {
+            &self.tool_when
+        };
+        map.get(kind).cloned().unwrap_or_default()
+    }
+
+    /// Says when one of this project's own tools can be used. The workshop's tools are changed
+    /// in My workshop, not here (nothing typed in a project reaches the workshop): false for
+    /// one of those, or for a tool the project doesn't list.
+    pub fn set_tool_when(&mut self, kind: &str, when: Availability) -> bool {
+        let Some(id) = self.tools.iter().copied().find(|k| *k == kind) else {
+            return false;
+        };
+        if self.tool_is_global(kind) {
+            return false;
+        }
+        if when.is_plain() {
+            self.tool_when.remove(id);
+        } else {
+            self.tool_when.insert(id, when);
+        }
+        true
+    }
+
+    /// Takes the tool at this place out of the project, with what was said about its days.
+    pub fn remove_tool_at(&mut self, index: usize) {
+        if index >= self.tools.len() {
+            return;
+        }
+        let kind = self.tools.remove(index);
+        self.tool_when.remove(kind);
+        if self
+            .when_editing
+            .as_ref()
+            .is_some_and(|(open, _)| *open == kind)
+        {
+            self.when_editing = None;
+        }
+    }
+
     /// Whether a material line of this project is the workshop's: the workshop has that line.
     pub fn material_is_global(&self, item: &Item) -> bool {
         self.workshop.materials.iter().any(|w| w.text == item.text)
@@ -316,6 +377,19 @@ impl NewProject {
             }
         }
         self.at = 0;
+    }
+
+    /// For `--quest N --when` screenshots: the workshop's tools listed (so a chip shows its
+    /// days), a project tool of its own with days, and the days form open on it.
+    pub fn fill_days_sample(&mut self) {
+        self.use_workshop_tools();
+        self.tool_text = "band saw".into();
+        self.add_tool_words();
+        if let Some(kind) = taxonomy::tool("band_saw").map(|t| t.id) {
+            self.set_tool_when(kind, Availability::weekends().with_note("Dad's garage"));
+            self.when_editing = Some((kind, WhenEditor::new(&self.tool_availability(kind))));
+        }
+        self.hint = None;
     }
 
     /// The steps, in order.
@@ -606,7 +680,13 @@ impl NewProject {
             .iter()
             .map(|id| {
                 let name = taxonomy::tool(id).map_or("", |t| t.name);
-                json!({ "kind": id, "name": name, "scope": scope_word(self.tool_is_global(id)) })
+                let mut tool =
+                    json!({ "kind": id, "name": name, "scope": scope_word(self.tool_is_global(id)) });
+                // Every day is the default, so only a tool with something to say gets a "when".
+                if let Some(when) = when_to_json(&self.tool_availability(id)) {
+                    tool["when"] = when;
+                }
+                tool
             })
             .collect();
         let materials: Vec<_> = self
@@ -1250,12 +1330,20 @@ fn tools_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
     }
     ui.add_space(6.0);
     let mut remove = None;
+    let mut open_when = None;
     ui.horizontal_wrapped(|ui| {
         for (i, id) in np.tools.iter().enumerate() {
             let name = taxonomy::tool(id).map_or(*id, |t| t.name);
             // From the workshop (global) is a filled chip; typed here (local, D30) is outlined.
             let global = np.tool_is_global(id);
-            let chip = egui::Button::new(RichText::new(name).size(14.0).color(p.ink))
+            // A tool that is only there some days says which (D31).
+            let when = np.tool_availability(id);
+            let label = if when.is_plain() {
+                name.to_string()
+            } else {
+                format!("{name} \u{b7} {}", when.words())
+            };
+            let chip = egui::Button::new(RichText::new(label).size(14.0).color(p.ink))
                 .fill(if global { p.chip } else { p.panel })
                 .stroke(if global {
                     Stroke::new(1.0, p.line)
@@ -1263,18 +1351,63 @@ fn tools_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
                     Stroke::new(2.0, ACCENT)
                 })
                 .corner_radius(CornerRadius::same(10));
-            let hint = if global {
-                "From your workshop. Click to leave it out of this project."
-            } else {
-                "Only for this project. Click to remove it."
+            let hint = match (global, when.is_plain()) {
+                (true, true) => "From your workshop. Click to leave it out of this project.".into(),
+                (true, false) => format!(
+                    "From your workshop, available {}. Click to leave it out of this project; \
+                     change the days in My workshop.",
+                    when.words()
+                ),
+                (false, _) => "Only for this project. Click to say when you can use it, or to \
+                               take it out."
+                    .into(),
             };
             if ui.add(chip).on_hover_text(hint).clicked() {
-                remove = Some(i);
+                // A workshop tool is left out at once; a project's own tool opens the form where
+                // its days are said (and where it can be taken out).
+                if global {
+                    remove = Some(i);
+                } else {
+                    open_when = Some(*id);
+                }
             }
         }
     });
     if let Some(i) = remove {
-        np.tools.remove(i);
+        np.remove_tool_at(i);
+    }
+    if let Some(kind) = open_when {
+        np.when_editing = Some((kind, WhenEditor::new(&np.tool_availability(kind))));
+    }
+    // The days form, while a tool's days are being changed.
+    let asked = match np.when_editing.as_mut() {
+        Some((kind, editor)) => {
+            let name = taxonomy::tool(kind).map_or(*kind, |t| t.name);
+            when_window(
+                ui.ctx(),
+                &format!("When can you use {name}?"),
+                editor,
+                true,
+                p,
+            )
+        }
+        None => None,
+    };
+    match asked {
+        Some(WhenAction::Save) => {
+            if let Some((kind, editor)) = np.when_editing.take() {
+                np.set_tool_when(kind, editor.result());
+            }
+        }
+        Some(WhenAction::Cancel) => np.when_editing = None,
+        Some(WhenAction::Remove) => {
+            if let Some((kind, _)) = np.when_editing.take() {
+                if let Some(i) = np.tools.iter().position(|k| *k == kind) {
+                    np.remove_tool_at(i);
+                }
+            }
+        }
+        None => {}
     }
     if !np.tools.is_empty() {
         let own = np.tools.iter().filter(|k| !np.tool_is_global(k)).count();
@@ -1749,6 +1882,100 @@ mod tests {
             scope_of("materials", "said", "2 yards 500D Cordura"),
             "local"
         );
+    }
+
+    fn tool_entry(np: &NewProject, kind: &str) -> serde_json::Value {
+        let snapshot: serde_json::Value = serde_json::from_slice(&np.inventory_json()).unwrap();
+        snapshot["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["kind"] == kind)
+            .unwrap_or_else(|| panic!("{kind} is not in the snapshot"))
+            .clone()
+    }
+
+    #[test]
+    fn a_workshop_tool_that_is_only_there_some_days_says_so_and_is_changed_in_my_workshop() {
+        let library = sample_library();
+        let iron = library
+            .add_tool("soldering_iron", "", Access::Shared, None)
+            .unwrap();
+        library
+            .set_tool_when(iron, &Availability::weekends().with_note("at Sam's"))
+            .unwrap();
+        let mut np = NewProject::new(false);
+        np.workshop = Workshop::read(&library).unwrap();
+        assert_eq!(
+            np.workshop.tool_when.len(),
+            1,
+            "only the tool with something to say"
+        );
+        np.use_workshop_tools();
+        assert_eq!(
+            np.tool_availability("soldering_iron"),
+            Availability::weekends().with_note("at Sam's")
+        );
+        assert!(np.tool_availability("jigsaw").is_plain());
+        assert!(
+            !np.set_tool_when("soldering_iron", Availability::always()),
+            "a workshop tool's days are changed in My workshop, not in a project"
+        );
+        assert_eq!(
+            np.tool_availability("soldering_iron").days(),
+            Availability::weekends().days()
+        );
+        let entry = tool_entry(&np, "soldering_iron");
+        assert_eq!(entry["scope"], "global");
+        assert_eq!(entry["when"]["days"], serde_json::json!(["sat", "sun"]));
+        assert_eq!(entry["when"]["note"], "at Sam's");
+        assert!(tool_entry(&np, "jigsaw").get("when").is_none());
+    }
+
+    #[test]
+    fn a_project_tool_keeps_its_own_days_until_it_is_taken_out() {
+        let mut np = NewProject::new(false);
+        np.workshop = Workshop::read(&sample_library()).unwrap();
+        np.tool_text = "a band saw".into();
+        np.add_tool_words();
+        assert!(
+            !np.set_tool_when("drill_press", Availability::weekends()),
+            "not in the project"
+        );
+        assert!(np.set_tool_when("band_saw", Availability::weekends()));
+        assert_eq!(np.tool_availability("band_saw"), Availability::weekends());
+        let entry = tool_entry(&np, "band_saw");
+        assert_eq!(entry["scope"], "local");
+        assert_eq!(entry["when"]["days"], serde_json::json!(["sat", "sun"]));
+        // Back to every day: nothing is written.
+        assert!(np.set_tool_when("band_saw", Availability::always()));
+        assert!(tool_entry(&np, "band_saw").get("when").is_none());
+        // Taken out, the days go with it; typed in again, the tool starts from every day.
+        assert!(np.set_tool_when("band_saw", Availability::weekdays()));
+        np.remove_tool_at(0);
+        assert!(np.tools.is_empty() && np.tool_when.is_empty());
+        np.tool_text = "band saw".into();
+        np.add_tool_words();
+        assert!(np.tool_availability("band_saw").is_plain());
+        np.remove_tool_at(9);
+        assert_eq!(
+            np.tools.len(),
+            1,
+            "a place that is not there removes nothing"
+        );
+    }
+
+    #[test]
+    fn the_days_form_closes_when_its_tool_is_taken_out() {
+        let mut np = NewProject::new(false);
+        np.tool_text = "a band saw".into();
+        np.add_tool_words();
+        np.when_editing = Some((
+            "band_saw",
+            WhenEditor::new(&np.tool_availability("band_saw")),
+        ));
+        np.remove_tool_at(0);
+        assert!(np.when_editing.is_none());
     }
 
     #[test]

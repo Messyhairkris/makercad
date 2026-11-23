@@ -15,12 +15,17 @@
 //! per user (`library.db`, SQLite) and snapshotted per project"), written by Claude. Desktop
 //! only: it is left out of the wasm32 build.
 //!
+//! `availability.rs` is when a tool can be used (decision D31): every day, or only some days of
+//! the week ("a multimeter on weekends"), with a note for what days cannot say. Pure data, so it
+//! builds for the browser too.
+//!
 //! `drift`: Inventory drift between a project's snapshot and the workshop library
 
 mod units {
     pub use mk_units::{nominal_lumber, parse_length, Unit};
 }
 
+pub mod availability;
 pub mod drift;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod library;

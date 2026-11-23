@@ -56,7 +56,7 @@ Design rules:
 
 Inventory entry is the biggest friction in the whole concept. Mitigations:
 
-1. **Workshop once, projects forever.** Global inventory is reused. Each new project only confirms what is relevant ("You have 41 tools; these 9 matter for a dresser"). What a person types into a project's Quest is **local** to that project (D30); the workshop itself is kept up to date in its own walkthrough, and leftover local materials are offered to it when the project is finished.
+1. **Workshop once, projects forever.** Global inventory is reused. Each new project only confirms what is relevant ("You have 41 tools; these 9 matter for a dresser"). What a person types into a project's Quest is **local** to that project (D30); the workshop itself is kept up to date in its own walkthrough, and leftover local materials and tools are offered to it when the project is finished. A tool can be there only some days (D31): in the tools step, clicking a project's own tool opens a small form for its days (with a way to take the tool out), and a workshop tool shows its days on its chip.
 2. **Kits** (doc 04 §4.3.1).
 3. **Photo intake.** Photograph the pegboard, shelf or stack. On-device recognition is optional and offline-capable, and it *proposes* items, which the user confirms. With the Mind enabled, a vision model can do better, clearly marked as AI.
 4. **Barcode/receipt intake** (later): scan a receipt to add materials with costs.

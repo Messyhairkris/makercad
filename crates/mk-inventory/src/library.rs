@@ -6,20 +6,24 @@
 //! Desktop only: SQLite is C code (the `rusqlite` crate with SQLite bundled), so this module is
 //! not built for the browser (wasm32); the rest of the crate is.
 //!
-//! The file carries its schema version (`PRAGMA user_version`). An empty file is set up at
-//! version 1; a file from a newer MakerCAD is refused, never changed.
+//! The file carries its schema version (`PRAGMA user_version`). An empty file is set up at the
+//! newest version; an older one is brought up to it (nothing in it is lost); a file from a newer
+//! MakerCAD is refused, never changed.
+//!
+//! Version 2 (D31) adds when a tool can be used: the days of the week, and a note.
 
 use std::fmt;
 use std::path::Path;
 
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
+use crate::availability::Availability;
 use crate::quickadd::{quick_add, Item, Kind};
 use crate::taxonomy;
 use crate::taxonomy_data::Access;
 
 /// The schema this code writes and reads.
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 /// The library's file name, in the app's data folder.
 pub const FILE_NAME: &str = "library.db";
 
@@ -48,6 +52,13 @@ CREATE TABLE materials (
     notes TEXT NOT NULL DEFAULT '',
     on_hand INTEGER NOT NULL DEFAULT 1
 );
+";
+
+/// Version 2: when a tool can be used. 127 is every day (bit 0 Monday ... bit 6 Sunday), so a
+/// tool from a version 1 file is available every day, as it was.
+const SCHEMA_V2: &str = "
+ALTER TABLE tools ADD COLUMN when_days INTEGER NOT NULL DEFAULT 127;
+ALTER TABLE tools ADD COLUMN when_note TEXT NOT NULL DEFAULT '';
 ";
 
 /// Why the library could not do something.
@@ -98,6 +109,8 @@ pub struct Tool {
     pub access: Access,
     pub accuracy_mm: Option<f64>,
     pub notes: String,
+    /// The days it can be used, and a note (D31). Every day, unless said otherwise.
+    pub when: Availability,
 }
 
 /// One material line, as quick-add understood it.
@@ -170,9 +183,15 @@ impl Library {
         if version > SCHEMA_VERSION {
             return Err(LibraryError::NewerSchema(version));
         }
-        if version < 1 {
+        if version < SCHEMA_VERSION {
+            // One transaction: a file is either at its old version or the new one, never half.
             let tx = conn.unchecked_transaction()?;
-            tx.execute_batch(SCHEMA_V1)?;
+            if version < 1 {
+                tx.execute_batch(SCHEMA_V1)?;
+            }
+            if version < 2 {
+                tx.execute_batch(SCHEMA_V2)?;
+            }
             tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
             tx.commit()?;
         }
@@ -236,9 +255,10 @@ impl Library {
 
     /// Every tool, oldest first.
     pub fn tools(&self) -> Result<Vec<Tool>, LibraryError> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id, kind, label, access, accuracy_mm, notes FROM tools ORDER BY id")?;
+        let mut stmt = self.conn.prepare(
+            "SELECT id, kind, label, access, accuracy_mm, notes, when_days, when_note
+             FROM tools ORDER BY id",
+        )?;
         let rows = stmt.query_map([], |row| {
             Ok((
                 row.get::<_, i64>(0)?,
@@ -247,14 +267,21 @@ impl Library {
                 row.get::<_, String>(3)?,
                 row.get::<_, Option<f64>>(4)?,
                 row.get::<_, String>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, String>(7)?,
             ))
         })?;
         let mut tools = Vec::new();
         for row in rows {
-            let (id, kind, label, access, accuracy_mm, notes) = row?;
+            let (id, kind, label, access, accuracy_mm, notes, days, note) = row?;
             let access = access_from(&access).ok_or_else(|| {
                 LibraryError::Corrupt(format!("tool {id} has the access \"{access}\""))
             })?;
+            let when = u8::try_from(days)
+                .ok()
+                .and_then(Availability::from_mask)
+                .ok_or_else(|| LibraryError::Corrupt(format!("tool {id} has the days {days}")))?
+                .with_note(&note);
             tools.push(Tool {
                 id,
                 kind,
@@ -262,9 +289,19 @@ impl Library {
                 access,
                 accuracy_mm,
                 notes,
+                when,
             });
         }
         Ok(tools)
+    }
+
+    /// Changes when a tool can be used; false when there is no such tool.
+    pub fn set_tool_when(&self, id: i64, when: &Availability) -> Result<bool, LibraryError> {
+        let n = self.conn.execute(
+            "UPDATE tools SET when_days = ?1, when_note = ?2 WHERE id = ?3",
+            params![i64::from(when.mask()), when.note(), id],
+        )?;
+        Ok(n > 0)
     }
 
     /// Changes how the maker has a tool; false when there is no such tool.
@@ -402,6 +439,7 @@ fn material_row(row: &Row<'_>) -> rusqlite::Result<Result<Material, LibraryError
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::availability::Day;
 
     fn scratch(tag: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!(
@@ -414,9 +452,10 @@ mod tests {
     }
 
     #[test]
-    fn a_new_library_is_set_up_at_version_1_and_empty() {
+    fn a_new_library_is_set_up_at_the_newest_version_and_empty() {
         let lib = Library::in_memory().unwrap();
         assert_eq!(lib.schema_version().unwrap(), SCHEMA_VERSION);
+        assert_eq!(SCHEMA_VERSION, 2);
         assert!(lib.tools().unwrap().is_empty());
         assert!(lib.materials().unwrap().is_empty());
     }
@@ -539,5 +578,111 @@ mod tests {
             assert_eq!(access_from(access_key(a)), Some(a));
         }
         assert_eq!(access_from("borrowed"), None);
+    }
+
+    #[test]
+    fn a_tool_is_available_every_day_until_told_otherwise() {
+        let lib = Library::in_memory().unwrap();
+        let id = lib
+            .add_tool("multimeter", "", Access::Shared, None)
+            .unwrap();
+        assert_eq!(lib.tools().unwrap()[0].when, Availability::always());
+        let weekends = Availability::weekends().with_note("at Sam's");
+        assert!(lib.set_tool_when(id, &weekends).unwrap());
+        assert_eq!(lib.tools().unwrap()[0].when, weekends);
+        assert!(lib.set_tool_when(id, &Availability::always()).unwrap());
+        assert!(lib.tools().unwrap()[0].when.is_plain());
+        assert!(!lib.set_tool_when(id + 1, &weekends).unwrap());
+    }
+
+    #[test]
+    fn a_kit_tool_and_a_second_tool_each_keep_their_own_days() {
+        let lib = Library::in_memory().unwrap();
+        let a = lib
+            .add_tool("multimeter", "", Access::Shared, None)
+            .unwrap();
+        let b = lib.add_tool("jigsaw", "", Access::Owned, None).unwrap();
+        lib.set_tool_when(a, &Availability::weekends()).unwrap();
+        let tools = lib.tools().unwrap();
+        assert_eq!(tools[0].id, a);
+        assert_eq!(tools[0].when, Availability::weekends());
+        assert_eq!(tools[1].id, b);
+        assert_eq!(tools[1].when, Availability::always());
+        lib.add_kit("basic_household").unwrap();
+        assert!(lib.tools().unwrap()[2..].iter().all(|t| t.when.is_plain()));
+    }
+
+    #[test]
+    fn the_days_are_kept_between_runs() {
+        let dir = scratch("when");
+        let path = dir.join(FILE_NAME);
+        {
+            let lib = Library::open(&path).unwrap();
+            let id = lib
+                .add_tool("multimeter", "", Access::Shared, None)
+                .unwrap();
+            let when = Availability::on(&[Day::Tue, Day::Sat]).unwrap();
+            lib.set_tool_when(id, &when.with_note("makerspace open night"))
+                .unwrap();
+        }
+        let lib = Library::open(&path).unwrap();
+        let when = &lib.tools().unwrap()[0].when;
+        assert_eq!(when.days(), vec![Day::Tue, Day::Sat]);
+        assert_eq!(when.note(), "makerspace open night");
+        drop(lib);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_version_1_file_is_brought_up_and_loses_nothing() {
+        let dir = scratch("v1");
+        let path = dir.join(FILE_NAME);
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(SCHEMA_V1).unwrap();
+            conn.pragma_update(None, "user_version", 1).unwrap();
+            conn.execute(
+                "INSERT INTO tools (kind, label, access, notes) VALUES ('jigsaw', 'Old jigsaw', 'owned', 'was my dad''s')",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "INSERT INTO materials (said, qty, kind, material) VALUES ('15 pine 2x4s, 3 foot', 15, 'board', 'pine')",
+                [],
+            )
+            .unwrap();
+        }
+        let lib = Library::open(&path).unwrap();
+        assert_eq!(lib.schema_version().unwrap(), SCHEMA_VERSION);
+        let tools = lib.tools().unwrap();
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].label, "Old jigsaw");
+        assert_eq!(tools[0].notes, "was my dad's");
+        assert!(tools[0].when.is_plain(), "available every day, as it was");
+        assert_eq!(lib.materials().unwrap()[0].item.qty, 15);
+        drop(lib);
+        // Opened again, it is at the new version and is not changed a second time.
+        let lib = Library::open(&path).unwrap();
+        assert_eq!(lib.tools().unwrap().len(), 1);
+        drop(lib);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn days_no_week_has_are_a_damaged_row_not_a_guess() {
+        let lib = Library::in_memory().unwrap();
+        let id = lib.add_tool("jigsaw", "", Access::Owned, None).unwrap();
+        for bad in [0_i64, 128, 300, -1] {
+            lib.conn
+                .execute(
+                    "UPDATE tools SET when_days = ?1 WHERE id = ?2",
+                    params![bad, id],
+                )
+                .unwrap();
+            assert!(
+                matches!(lib.tools(), Err(LibraryError::Corrupt(m)) if m.contains(&bad.to_string())),
+                "{bad}"
+            );
+        }
     }
 }
