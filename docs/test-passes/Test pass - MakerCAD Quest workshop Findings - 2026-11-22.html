@@ -113,7 +113,7 @@ textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;background:va
     <span>MakerCAD · 2026-11-22 · local copy · nothing leaves this machine</span>
   </div>
   <h1>Quest, workshop and Findings</h1>
-  <p class="lede">Written for your look at noon. It covers what changed since your last pass: the Quest, the workshop library, the Findings panel, and the Crew's modules. Saves to this browser as you type; <b>Export findings</b> gives text to paste back into the conversation. Points about things I could not check myself say so.</p>
+  <p class="lede">Written for your look at noon. It covers what changed since your last pass: the Quest, the workshop (global and local tools and materials, your rule of 2026-11-23), the Findings panel, and the Crew's modules. Saves to this browser as you type; <b>Export findings</b> gives text to paste back into the conversation. Points about things I could not check myself say so.</p>
 </header>
 
 <div class="bar-wrap">
@@ -178,7 +178,7 @@ const ITEMS = [
   "n": "01",
   "t": "Start something new (the Quest)",
   "time": "~15 min",
-  "note": "The first card on the opening screen. Nine questions, every one skippable; the right-hand card \"What your answers set up\" changes as you answer. The questions, the reading of your words and the scale guess are the Crew's modules; I drew the screen. I checked it with screenshots and 71 unit tests, not by using it for a real project, so this is the first real use.",
+  "note": "The first card on the opening screen. Nine questions, every one skippable; the right-hand card \"What your answers set up\" changes as you answer. The questions, the reading of your words and the scale guess are the Crew's modules; I drew the screen. I checked it with screenshots and 80 unit tests, not by using it for a real project, so this is the first real use.",
   "items": [
    {
     "id": "q_rail",
@@ -219,9 +219,9 @@ const ITEMS = [
  },
  {
   "n": "02",
-  "t": "Use my workshop (new today)",
+  "t": "Use my workshop, and what stays in the project (new)",
   "time": "~10 min",
-  "note": "The workshop is a SQLite file, <code>%LOCALAPPDATA%\\MakerCAD\\library.db</code>: one per person, not per project. Opening the Quest makes an empty one if there is none. To try it without touching that file, open a Command Prompt in the repo folder and run:<br><code>python tools\\make_sample_library.py %TEMP%\\sample-library.db</code><br><code>set MAKERCAD_LIBRARY=%TEMP%\\sample-library.db</code><br><code>third_party\\solidcraft\\target\\debug\\makercad.exe</code><br>The sample holds 13 tools (10 owned, 1 shared, 1 wishlist, 1 at a makerspace) and 3 material lines. Do not run the script against <code>library.db</code> itself: it replaces the file.",
+  "note": "Your rule (decision D30): tools and materials are <b>global</b> (your workshop, for every project) or <b>local</b> (this project only, say a board bought for the task). The workshop is a SQLite file, <code>%LOCALAPPDATA%\\MakerCAD\\library.db</code>: one per person, not per project. Opening the Quest makes an empty one if there is none. To try it without touching that file, open a Command Prompt in the repo folder and run:<br><code>python tools\\make_sample_library.py %TEMP%\\sample-library.db</code><br><code>set MAKERCAD_LIBRARY=%TEMP%\\sample-library.db</code><br><code>third_party\\solidcraft\\target\\debug\\makercad.exe</code><br>The sample holds 13 tools (10 owned, 1 shared, 1 wishlist, 1 at a makerspace) and 3 material lines. Do not run the script against <code>library.db</code> itself: it replaces the file.",
   "items": [
    {
     "id": "w_tools",
@@ -245,16 +245,66 @@ const ITEMS = [
     "e": "\"Your workshop has 3 material lines on hand.\" Then three lines: 15 pine boards 38 × 89 mm and 914 mm long; 1 plywood sheet 19 mm thick; 2 oak boards. Each is shown with the words it came from (\"15 pine 2x4s, 3 foot\", \"half sheet 3/4 ply\", \"2 oak 1x6s, 4 foot\") and a × to remove it. The exact sizes shown for the plywood and oak are what the file holds; tell me if any looks wrong."
    },
    {
-    "id": "w_learn",
-    "t": "A new project teaches the workshop what it lacked",
+    "id": "w_local",
+    "t": "What you type stays in the project (global and local)",
     "isnew": 1,
-    "d": "Add one tool the sample does not have (type <b>band saw</b>) and one material line (<b>2 yards 500D Cordura</b>). Go to the end and make the project. Then close, start again with the same <code>MAKERCAD_LIBRARY</code>, and look at the tools step.",
-    "e": "The notice after making the project ends with \"Your workshop learned 1 tool and 1 material line.\" (I changed the wording after my last screenshot, so check the singular.) The next Quest says the workshop has 12 tools I know and 4 material lines. I tested this with unit tests only."
+    "d": "On the tools step type <b>band saw</b> and Add; on the materials step type <b>2 yards 500D Cordura</b> and Add. Look at the chips and rows, then make the project (Skip to designing is fine).",
+    "e": "The band saw chip has a coral outline (the workshop's tools are filled); hovering it says \"Only for this project. Click to remove it.\"; under the chips: \"... the 1 with an outline are only for this project. Keep your workshop up to date in My workshop.\" The Cordura row says \"only for this project\" in coral; the other rows say \"your workshop\". After making the project the notice ends \"1 material line is only for this project; what is left can be offered to your workshop when it is finished.\" Your workshop must NOT have gained the band saw or the Cordura: check in My workshop (next section). This is your D30 rule; I checked it with a unit test and screenshots only."
    }
   ]
  },
  {
   "n": "03",
+  "t": "My workshop: the walkthrough (new)",
+  "time": "~10 min",
+  "note": "The global tools and materials get their own three steps so they are easy to keep up to date. Use the same sample-library setup as above (so the real <code>library.db</code> is untouched). Layout is plain for now: tell me what is awkward.",
+  "items": [
+   {
+    "id": "ws_open",
+    "t": "Open it from the opening screen",
+    "isnew": 1,
+    "d": "Go Home. In the My workshop card press <b>Open workshop</b>. (Or Ctrl+K and type <b>workshop</b>.)",
+    "e": "A screen titled \"My workshop\" with three steps on the left (Your tools, Your materials, All set), \"Done\" top right, and \"What tools do you have?\" with the kit buttons (Basic household, Starter woodshop, ...), a box to type a tool, and 13 tools each with a dropdown (\"I own it\", the router \"Shared with me\", the drill press \"Wishlist\") and a ×."
+   },
+   {
+    "id": "ws_add",
+    "t": "Add tools by name and by kit",
+    "isnew": 1,
+    "d": "Type <b>band saw</b> and press Add; type it again; then press the <b>Laser</b> kit twice.",
+    "e": "\"Added Band saw.\"; the second time \"You already have Band saw.\"; the kit says how many tools it added (\"Laser: N tools added...\") and the second press says \"you already have all of these.\""
+   },
+   {
+    "id": "ws_access",
+    "t": "Say how you have a tool, or take it out",
+    "isnew": 1,
+    "d": "Change the Jigsaw's dropdown to <b>Wishlist</b>. Press the × on the band saw.",
+    "e": "The jigsaw stays in the list as Wishlist. The band saw disappears. Then start a new project (Home, Start something new): its tools step now counts the jigsaw among the ones \"on a wishlist\", and Use my workshop leaves it out."
+   },
+   {
+    "id": "ws_materials",
+    "t": "Materials: add, count, used up, take out",
+    "isnew": 1,
+    "d": "On Your materials type <b>6 pine 1x4s, 4 foot</b> and Add. Press its − twice, then untick \"on hand\". Then press its ×.",
+    "e": "A line \"6 × pine board 19 × 89 mm 1219 mm long\" with 6 beside it; after two − it shows 4; unticked, it stops being offered by a new Quest's \"Use my workshop\"; × removes it. The count never goes below 0."
+   },
+   {
+    "id": "ws_summary",
+    "t": "All set says what you have and what changed",
+    "isnew": 1,
+    "d": "Press Next to reach <b>All set</b>.",
+    "e": "One sentence: \"Your workshop has N tools (M you have at hand) and K material lines (J on hand)\" followed, if anything changed on this visit, by \", X more tools than when you opened this\" and the same for material lines. Press <b>Done</b>: you are back where you opened it from."
+   },
+   {
+    "id": "ws_home",
+    "t": "The opening screen counts the workshop",
+    "isnew": 1,
+    "d": "Look at the My workshop card on the opening screen.",
+    "e": "Its second line reads \"N tools · K material lines · this PC: ...\" instead of \"No tools or materials yet\". (With --demo it still shows the sample's 41 tools.)"
+   }
+  ]
+ },
+ {
+  "n": "04",
   "t": "Making the project",
   "time": "~5 min",
   "note": "Confirming the last step, or \"Skip to designing\" at any time, makes a project file. I have not looked at the Design workspace that opens on the new, empty design, so I do not know what it looks like.",
@@ -283,8 +333,44 @@ const ITEMS = [
   ]
  },
  {
-  "n": "04",
-  "t": "Sancho's Findings panel (new today)",
+  "n": "05",
+  "t": "Finishing the project: what is left over (new)",
+  "time": "~10 min",
+  "note": "Your rule: any materials left from a local project can be added to the workshop at the end. Today that is a command, because a project does not yet remember being finished: press Ctrl+K and type <b>finish</b>. To see it without making a project, start the exe with <code>--finish</code> (a sample project with three materials of its own). Local tools are not offered: you said materials; see Your call.",
+  "items": [
+   {
+    "id": "fin_open",
+    "t": "The offer lists only the project's own materials",
+    "isnew": 1,
+    "d": "With the project you made in the last section open (one with the Cordura in it), Ctrl+K, <b>Finish the project</b>.",
+    "e": "A window \"Finish the project\": \"The project is finished. Anything left over?\", then the Cordura line (the materials that came from your workshop are NOT listed), each with a tick box and \"left:\" with a number that is greyed until the line is ticked, and \"Add to my workshop\" greyed until one is ticked, and \"Not now\". With --finish: three lines (Cordura, half sheet of plywood, 6 pine 1x4s), Cordura ticked with left: 1, and the button says \"Add 1 to my workshop\"."
+   },
+   {
+    "id": "fin_add",
+    "t": "Ticking and adding hands them to the workshop",
+    "isnew": 1,
+    "d": "Tick the Cordura, set left to <b>1</b> (it starts at the number you listed), press <b>Add to my workshop</b>. Then open My workshop, Your materials.",
+    "e": "A message \"1 material line added to your workshop.\" followed by the save message. In My workshop a Cordura line is there with <b>1</b> beside it (the number left, not the number you bought). Ctrl+K, Finish the project again: \"This project has no materials of its own left to offer.\""
+   },
+   {
+    "id": "fin_notnow",
+    "t": "Not now changes nothing",
+    "isnew": 1,
+    "d": "Open the offer on another project, tick something, press <b>Not now</b>.",
+    "e": "The window closes; My workshop has nothing new; the offer is still there next time."
+   },
+   {
+    "id": "fin_none",
+    "t": "A project with nothing of its own says so",
+    "isnew": 1,
+    "d": "On an example you opened but never made a project from, Ctrl+K, Finish the project.",
+    "e": "\"Open or make a project first: finishing is something a project does.\""
+   }
+  ]
+ },
+ {
+  "n": "06",
+  "t": "Sancho's Findings panel",
   "time": "~10 min",
   "note": "This panel draws the Crew's models: how findings are sorted and counted, and the \"Why?\" derivations. It shows <b>the golden dresser's findings</b>, not the design you have open: the window cannot yet read a design's parts, materials and loads into the facts the rules read (the Crew has built the geometry for that, <code>design_facts</code>, and it is not connected). The golden dresser is the P2 exit fixture: a three-drawer chest that the four rule packs leave alone, with five faults seeded.",
   "items": [
@@ -340,7 +426,7 @@ const ITEMS = [
   ]
  },
  {
-  "n": "05",
+  "n": "07",
   "t": "Older things, one line each",
   "time": "~5 min",
   "note": "These are from earlier days. If you already checked them, mark n/a.",
@@ -369,7 +455,7 @@ const ITEMS = [
   ]
  },
  {
-  "n": "06",
+  "n": "08",
   "t": "What the Crew built today",
   "time": "~5 min",
   "note": "Gordon wrote contracts, reference code and hidden tests as a PA; Deepak, Hoss, Kimi and Qwen wrote the modules and a second set of tests; I checked each with mutation testing (seeded bugs the tests must catch) and wrote the missing tests by hand where they did not. Everything is in <code>STATUS.md</code>, one row per module.",
@@ -384,17 +470,24 @@ const ITEMS = [
   ]
  },
  {
-  "n": "07",
+  "n": "09",
   "t": "Your call",
   "time": "~5 min",
-  "note": "Three decisions only you can make. The numbers are real; I have not tucked a recommendation into the question.",
+  "note": "Decisions only you can make. The numbers are real; I have not tucked a recommendation into the question. Already settled by your direction (D30): a part's material is picked from the project's list of materials, which is the workshop's global ones plus the project's own local ones; I will build that when the Findings panel is wired to your real design.",
   "items": [
    {
-    "id": "y_material",
-    "t": "Where does a part's material come from?",
+    "id": "y_local_tools",
+    "t": "Local tools at the end of a project",
     "isnew": 1,
-    "d": "To show findings about your own design the window must know each part's material.",
-    "e": "Today SolidCraft bodies carry no wood species, so the sag and thin-wall rules would stay silent (silence over a guess is the rule). Options: (a) a small list beside the design where you pick a material for each part; (b) default every part to the first board you listed in the Quest; (c) wait for Stock & Cut (P3), where parts get their boards. Which?"
+    "d": "You said the end-of-project offer is for remaining <b>materials</b>.",
+    "e": "A tool bought or borrowed for one project is local too (the outline in the Quest), and today it just stays in that project. Should the same offer list local tools (\"add to my workshop?\"), or materials only, as you said?"
+   },
+   {
+    "id": "y_finished",
+    "t": "Should a project know it is finished?",
+    "isnew": 1,
+    "d": "Today finishing is a command (Ctrl+K, Finish the project) that you run yourself.",
+    "e": "Options: (a) keep the command only; (b) a Finish button on the project (in Build or Share) that marks it finished in the .maker file, opens this offer, and then shows it as done on the opening screen. (b) means a new field in the project file and a finished state to display. Which?"
    },
    {
     "id": "y_numbers",
@@ -427,7 +520,7 @@ const FINAL = [
    ph:"Browser, machine, screen size, what else was running."}
 ];
 
-const KEY = "makercad-p2-quest-workshop-findings-v1";
+const KEY = "makercad-p2-quest-workshop-findings-v2";
 const ALL = ITEMS.flatMap(s => s.items.map(i => i.id));
 let state = {};
 try {

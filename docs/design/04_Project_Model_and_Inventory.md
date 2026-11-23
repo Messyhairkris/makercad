@@ -47,6 +47,8 @@ A **project can hold several designs**: a pencil sharpener *and* its box, or a b
 
 The inventory is **global per user** (`library.db`, SQLite) and **snapshotted per project**. Entry has to be quick, or nobody will do it. Doc 05 covers the entry UX: kits, photos, quick-add phrases.
 
+Every tool and material is **global** or **local** (D30). *Global* items are the person's workshop: they have their own walkthrough, "My workshop" (tools, then materials, then what has changed), so keeping them up to date is easy, and every project can use them. *Local* items belong to one project (say a board bought for this task) and never enter the workshop on their own. A project's snapshot (`project/inventory.json`) marks each entry `"scope": "global"` or `"scope": "local"`. When the project is **finished**, its leftover local materials are offered to the workshop, each with how many are left; the ones the person adds become global.
+
 ### 4.3.1 Tools
 
 ```json

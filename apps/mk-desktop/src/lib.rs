@@ -22,6 +22,7 @@ pub mod scale_figure;
 pub mod shell;
 pub mod stage;
 pub mod theme;
+pub mod workshop_screen;
 
 use std::time::{Duration, Instant};
 
@@ -70,6 +71,10 @@ pub struct Launch {
     /// `Some(true)` with its five seeded faults, `Some(false)` without (`--findings`, for
     /// screenshots and reviews).
     pub findings: Option<bool>,
+    /// Open "My workshop" at this step (1 to 3) (`--workshop`, for screenshots and reviews).
+    pub workshop: Option<usize>,
+    /// Open a sample project's end-of-project offer over the Design workspace (`--finish`).
+    pub finish: bool,
 }
 
 /// What `--spin` measured: the time of each frame (egui's input time), once the view has settled.
@@ -116,6 +121,8 @@ enum Screen {
     /// "Start something new".
     Quest,
     Design,
+    /// "My workshop": the walkthrough for the global tools and materials.
+    Workshop,
 }
 
 /// The app.
@@ -148,6 +155,14 @@ pub struct MakerApp {
     quest: Option<quest_screen::NewProject>,
     /// Sancho's Findings panel, when shown (doc 07 section 7.4).
     findings: Option<findings_panel::FindingsPanel>,
+    /// "My workshop", when open (D30).
+    workshop: Option<workshop_screen::WorkshopEdit>,
+    /// The screen "My workshop" goes back to.
+    workshop_from: Screen,
+    /// How many tools and material lines the workshop holds, for the opening screen.
+    workshop_counts: Option<(usize, usize)>,
+    /// The end-of-project offer, when open: the project's local materials.
+    finishing: Option<Vec<workshop_screen::LeftOver>>,
     spin: Spin,
     /// The environment tab in front.
     env: Env,
@@ -209,6 +224,10 @@ impl MakerApp {
             listed: Vec::new(),
             quest: None,
             findings: None,
+            workshop: None,
+            workshop_from: Screen::Home,
+            workshop_counts: None,
+            finishing: None,
             spin: Spin::default(),
             env: Env::Design,
             units,
@@ -221,6 +240,7 @@ impl MakerApp {
             app.load_demo();
         } else {
             app.refresh_projects();
+            app.refresh_workshop_counts();
         }
         if app.launch.sample {
             app.open_example(0, 0.0);
@@ -244,6 +264,14 @@ impl MakerApp {
                 panel.open_why_for("structure.screw_through");
                 app.findings = Some(panel);
             }
+        }
+        if let Some(step) = app.launch.workshop {
+            if let Some(e) = app.open_workshop(step.saturating_sub(1)) {
+                eprintln!("makercad: {e}");
+            }
+        }
+        if app.launch.finish {
+            app.sample_finish();
         }
         if let Some(step) = app.launch.quest {
             let mut quest = app.new_quest();
@@ -391,6 +419,38 @@ impl MakerApp {
                     };
                 }
             }
+            Act::Workshop => {
+                if let Some(e) = self.open_workshop(0) {
+                    self.notice = Some((e, now + 8.0));
+                }
+            }
+            Act::FinishProject => {
+                let own = self
+                    .project
+                    .as_ref()
+                    .and_then(|p| {
+                        p.others
+                            .iter()
+                            .find(|(name, _)| name == quest_screen::INVENTORY_ENTRY)
+                    })
+                    .map(|(_, bytes)| workshop_screen::local_materials(bytes));
+                match own {
+                    None => {
+                        self.notice = Some((
+                            "Open or make a project first: finishing is something a project does."
+                                .into(),
+                            now + 6.0,
+                        ))
+                    }
+                    Some(items) if items.is_empty() => {
+                        self.notice = Some((
+                            "This project has no materials of its own left to offer.".into(),
+                            now + 6.0,
+                        ))
+                    }
+                    Some(items) => self.finishing = Some(items),
+                }
+            }
             Act::SetLook(look) => self.look = look,
             Act::SetUnits(units) => self.units = units,
             Act::Later(l) if l.phase == "now" => say(format!("{}: {}", l.what, l.note), 6.0),
@@ -498,8 +558,153 @@ impl MakerApp {
         if self.launch.demo {
             format!("41 tools \u{b7} 23 materials \u{b7} 6 salvage \u{b7} {pc}")
         } else {
-            format!("No tools or materials yet \u{b7} {pc}")
+            match self.workshop_counts {
+                Some((tools, materials)) if tools + materials > 0 => format!(
+                    "{tools} tool{} \u{b7} {materials} material line{} \u{b7} {pc}",
+                    if tools == 1 { "" } else { "s" },
+                    if materials == 1 { "" } else { "s" },
+                ),
+                _ => format!("No tools or materials yet \u{b7} {pc}"),
+            }
         }
+    }
+
+    /// Counts what the workshop library holds, for the opening screen (nothing is made if the
+    /// file does not exist yet).
+    fn refresh_workshop_counts(&mut self) {
+        self.workshop_counts = quest_screen::library_path()
+            .filter(|path| path.exists())
+            .and_then(|path| workshop_screen::counts(&path));
+    }
+
+    /// Opens "My workshop" at `step`, going back to the screen in front when it is done. Returns
+    /// what went wrong, if anything.
+    fn open_workshop(&mut self, step: usize) -> Option<String> {
+        let path = quest_screen::library_path()?;
+        match workshop_screen::WorkshopEdit::open(&path) {
+            Ok(mut edit) => {
+                edit.go_to(step);
+                if self.screen != Screen::Workshop {
+                    self.workshop_from = self.screen;
+                }
+                self.workshop = Some(edit);
+                self.screen = Screen::Workshop;
+                None
+            }
+            Err(e) => Some(format!("The workshop could not be opened: {e}")),
+        }
+    }
+
+    /// "My workshop", until the person is done.
+    fn workshop_screen(&mut self, ui: &mut egui::Ui) {
+        let palette = self.look.palette();
+        let Some(edit) = self.workshop.as_mut() else {
+            self.screen = Screen::Home;
+            return;
+        };
+        let action = egui::CentralPanel::default()
+            .frame(Frame::NONE)
+            .show(ui, |ui| workshop_screen::show(ui, edit, &palette))
+            .inner;
+        if action == Some(workshop_screen::WorkshopAction::Close) {
+            self.workshop = None;
+            self.screen = self.workshop_from;
+            self.refresh_workshop_counts();
+        }
+    }
+
+    /// The end-of-project offer (D30): the finished project's own materials, to add to the
+    /// workshop.
+    fn finish_window(&mut self, ctx: &egui::Context, now: f64) {
+        let p = self.look.palette();
+        let Some(items) = self.finishing.as_mut() else {
+            return;
+        };
+        let mut action = None;
+        egui::Window::new("Finish the project")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
+            .show(ctx, |ui| {
+                ui.set_width(600.0);
+                action = workshop_screen::finish_ui(ui, items, &p);
+            });
+        match action {
+            Some(workshop_screen::FinishAction::NotNow) => self.finishing = None,
+            Some(workshop_screen::FinishAction::Add) => {
+                let text = self.finish_add();
+                self.notice = Some((text, now + 8.0));
+            }
+            None => {}
+        }
+    }
+
+    /// Adds the ticked leftovers to the workshop, marks them global in the project's snapshot
+    /// and saves the project. Returns what to tell the person.
+    fn finish_add(&mut self) -> String {
+        let Some(items) = self.finishing.take() else {
+            return "Nothing to add.".into();
+        };
+        let Some(path) = quest_screen::library_path() else {
+            return "There is no folder for the workshop.".into();
+        };
+        if let Some(folder) = path.parent() {
+            let _ = std::fs::create_dir_all(folder);
+        }
+        let added = mk_inventory::library::Library::open(&path)
+            .and_then(|library| workshop_screen::add_leftovers(&library, &items));
+        let added = match added {
+            Ok(added) => added,
+            Err(e) => {
+                self.finishing = Some(items);
+                return format!("Not added: {e}");
+            }
+        };
+        if let Some(project) = self.project.as_mut() {
+            for (name, bytes) in project.others.iter_mut() {
+                if name == quest_screen::INVENTORY_ENTRY {
+                    *bytes = workshop_screen::mark_global(bytes, &added);
+                }
+            }
+        }
+        self.refresh_workshop_counts();
+        let saved = self.save_project();
+        format!(
+            "{} material line{} added to your workshop. {saved}",
+            added.len(),
+            if added.len() == 1 { "" } else { "s" }
+        )
+    }
+
+    /// A sample project with a few materials of its own and the offer open on them, for
+    /// `--finish` screenshots.
+    fn sample_finish(&mut self) {
+        if self.design.is_none() {
+            self.open_example(0, 0.0);
+        }
+        let inventory = serde_json::json!({
+            "version": 2,
+            "tools": [],
+            "materials": [
+                { "said": "15 pine 2x4s, 3 foot", "qty": 15, "scope": "global" },
+                { "said": "2 yards 500D Cordura", "qty": 2, "scope": "local" },
+                { "said": "half sheet 3/4 ply", "qty": 1, "scope": "local" },
+                { "said": "6 pine 1x4s, 4 foot", "qty": 6, "scope": "local" },
+            ],
+        });
+        let bytes = serde_json::to_vec_pretty(&inventory).unwrap_or_default();
+        if let Ok(mut project) = project_file::Project::new("Alcove dresser", "A sample project") {
+            project
+                .others
+                .push((quest_screen::INVENTORY_ENTRY.to_string(), bytes.clone()));
+            self.project = Some(project);
+        }
+        let mut items = workshop_screen::local_materials(&bytes);
+        if let Some(first) = items.first_mut() {
+            first.keep = true;
+            first.left = 1;
+        }
+        self.finishing = Some(items);
     }
 
     fn status_line(&self) -> String {
@@ -554,9 +759,7 @@ impl MakerApp {
             HomeAction::OpenRecent(_) => {
                 say("These are the design canvas's sample projects (--demo); they do not open.")
             }
-            HomeAction::OpenWorkshop => {
-                say("The workshop (your tools and materials) comes with P1.")
-            }
+            HomeAction::OpenWorkshop => self.open_workshop(0).map(|e| (e, now + 8.0)),
             HomeAction::ImportProject => say("Import comes with the project file (P1)."),
             HomeAction::Examples => {
                 self.open_example(0, now);
@@ -899,10 +1102,13 @@ impl eframe::App for MakerApp {
             self.design_screen(ui, now);
         } else if self.screen == Screen::Quest && self.quest.is_some() {
             self.quest_screen(ui, now);
+        } else if self.screen == Screen::Workshop && self.workshop.is_some() {
+            self.workshop_screen(ui);
         } else {
             self.home_screen(ui, &ctx, now);
         }
         self.windows(&ctx);
+        self.finish_window(&ctx, now);
         let mut kit = shell::Kit::new(self.look, &mut self.icons);
         let found = shell::search_window(
             &ctx,
@@ -981,8 +1187,6 @@ impl MakerApp {
             Ok(created) => created,
             Err(e) => return format!("Not made: {e}"),
         };
-        // What this project knows that the workshop doesn't: written down once it is made.
-        let news = np.workshop_news();
         let mut project = match project_file::Project::new(&created.name, &created.goal) {
             Ok(project) => project,
             Err(e) => return format!("Not made: {e}"),
@@ -1028,21 +1232,15 @@ impl MakerApp {
                 created.outstanding.len()
             ));
         }
-        if let (Some(path), false) = (
-            quest_screen::library_path(),
-            news.0.is_empty() && news.1.is_empty(),
-        ) {
-            match quest_screen::Workshop::learn(&path, &news.0, &news.1) {
-                Ok((tools, materials)) => {
-                    let s = |n: usize| if n == 1 { "" } else { "s" };
-                    text.push_str(&format!(
-                        " Your workshop learned {tools} tool{} and {materials} material line{}.",
-                        s(tools),
-                        s(materials)
-                    ));
-                }
-                Err(e) => eprintln!("makercad: the workshop library was not updated: {e}"),
-            }
+        // What was typed into the Quest is the project's own (D30); say so once.
+        let own = workshop_screen::local_materials(&created.inventory).len();
+        if own > 0 {
+            text.push_str(&format!(
+                " {own} material line{} {} only for this project; what is left can be offered to \
+                 your workshop when it is finished.",
+                if own == 1 { "" } else { "s" },
+                if own == 1 { "is" } else { "are" },
+            ));
         }
         text
     }

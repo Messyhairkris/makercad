@@ -154,26 +154,6 @@ impl Workshop {
             .collect();
         Ok(workshop)
     }
-
-    /// Writes down what a project added that the workshop didn't have: the tool kinds as owned,
-    /// the material lines as said. Returns how many tools and materials were added.
-    pub fn learn(
-        path: &std::path::Path,
-        tools: &[&'static str],
-        materials: &[String],
-    ) -> Result<(usize, usize), LibraryError> {
-        let library = Library::open(path)?;
-        for kind in tools {
-            library.add_tool(kind, "", Access::Owned, None)?;
-        }
-        let mut added = 0;
-        for said in materials {
-            if library.add_material(said).is_ok() {
-                added += 1;
-            }
-        }
-        Ok((tools.len(), added))
-    }
 }
 
 /// What confirming the Quest makes.
@@ -295,22 +275,15 @@ impl NewProject {
         self.materials.extend(missing);
     }
 
-    /// What this project knows that the workshop doesn't: tool kinds and material lines to write
-    /// down when the project is made ("Workshop once, projects forever").
-    pub fn workshop_news(&self) -> (Vec<&'static str>, Vec<String>) {
-        let tools = self
-            .tools
-            .iter()
-            .copied()
-            .filter(|k| !self.workshop.tools.contains(k))
-            .collect();
-        let materials = self
-            .materials
-            .iter()
-            .filter(|m| !self.workshop.materials.iter().any(|w| w.text == m.text))
-            .map(|m| m.text.clone())
-            .collect();
-        (tools, materials)
+    /// Whether a tool of this project is the workshop's (global) rather than the project's own
+    /// (local, D30): the workshop has the kind.
+    pub fn tool_is_global(&self, kind: &str) -> bool {
+        self.workshop.tools.contains(&kind)
+    }
+
+    /// Whether a material line of this project is the workshop's: the workshop has that line.
+    pub fn material_is_global(&self, item: &Item) -> bool {
+        self.workshop.materials.iter().any(|w| w.text == item.text)
     }
 
     /// A sample dresser's answers, for `--quest` screenshots: every step before the review is
@@ -633,7 +606,7 @@ impl NewProject {
             .iter()
             .map(|id| {
                 let name = taxonomy::tool(id).map_or("", |t| t.name);
-                json!({ "kind": id, "name": name })
+                json!({ "kind": id, "name": name, "scope": scope_word(self.tool_is_global(id)) })
             })
             .collect();
         let materials: Vec<_> = self
@@ -641,6 +614,7 @@ impl NewProject {
             .iter()
             .map(|m| {
                 json!({
+                    "scope": scope_word(self.material_is_global(m)),
                     "said": m.text,
                     "qty": m.qty,
                     "kind": format!("{:?}", m.kind).to_lowercase(),
@@ -654,8 +628,18 @@ impl NewProject {
                 })
             })
             .collect();
-        let value = json!({ "version": 1, "tools": tools, "materials": materials });
+        let value = json!({ "version": 2, "tools": tools, "materials": materials });
         serde_json::to_vec_pretty(&value).unwrap_or_default()
+    }
+}
+
+/// How `project/inventory.json` says whether an entry is the workshop's or the project's own
+/// (D30).
+pub fn scope_word(global: bool) -> &'static str {
+    if global {
+        "global"
+    } else {
+        "local"
     }
 }
 
@@ -882,14 +866,14 @@ pub fn show(ui: &mut Ui, np: &mut NewProject, p: &Palette) -> Option<QuestAction
     action
 }
 
-fn column(ui: &mut Ui, width: f32, add: impl FnOnce(&mut Ui)) {
+pub(crate) fn column(ui: &mut Ui, width: f32, add: impl FnOnce(&mut Ui)) {
     ui.allocate_ui_with_layout(vec2(width, 0.0), Layout::top_down(Align::Min), |ui| {
         ui.set_width(width);
         add(ui);
     });
 }
 
-fn accent_button(text: &str) -> egui::Button<'_> {
+pub(crate) fn accent_button(text: &str) -> egui::Button<'_> {
     egui::Button::new(RichText::new(text).size(15.0).strong().color(SANCHO_INK))
         .min_size(vec2(0.0, 40.0))
         .fill(ACCENT)
@@ -897,7 +881,7 @@ fn accent_button(text: &str) -> egui::Button<'_> {
         .corner_radius(CornerRadius::same(12))
 }
 
-fn plain_button<'a>(p: &Palette, text: &'a str) -> egui::Button<'a> {
+pub(crate) fn plain_button<'a>(p: &Palette, text: &'a str) -> egui::Button<'a> {
     egui::Button::new(RichText::new(text).size(15.0).strong().color(p.ink))
         .min_size(vec2(0.0, 40.0))
         .fill(p.bg2)
@@ -905,7 +889,7 @@ fn plain_button<'a>(p: &Palette, text: &'a str) -> egui::Button<'a> {
         .corner_radius(CornerRadius::same(12))
 }
 
-fn card(ui: &mut Ui, p: &Palette, add: impl FnOnce(&mut Ui)) {
+pub(crate) fn card(ui: &mut Ui, p: &Palette, add: impl FnOnce(&mut Ui)) {
     Frame::new()
         .fill(p.panel)
         .stroke(Stroke::new(2.0, p.line))
@@ -1133,7 +1117,7 @@ fn question(
     action
 }
 
-fn muted(ui: &mut Ui, p: &Palette, text: &str) {
+pub(crate) fn muted(ui: &mut Ui, p: &Palette, text: &str) {
     ui.add(egui::Label::new(RichText::new(text).size(15.0).color(p.muted)).wrap());
     ui.add_space(4.0);
 }
@@ -1157,7 +1141,7 @@ fn enter_moves_on(ui: &Ui, response: &egui::Response, np: &mut NewProject) {
 }
 
 /// A one-line box with an Add button; true when Add was pressed (or Enter in the box).
-fn add_box(ui: &mut Ui, p: &Palette, text: &mut String, hint: &str) -> bool {
+pub(crate) fn add_box(ui: &mut Ui, p: &Palette, text: &mut String, hint: &str) -> bool {
     let mut wanted = false;
     ui.horizontal(|ui| {
         let r = field(ui, text, hint);
@@ -1269,15 +1253,22 @@ fn tools_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
     ui.horizontal_wrapped(|ui| {
         for (i, id) in np.tools.iter().enumerate() {
             let name = taxonomy::tool(id).map_or(*id, |t| t.name);
+            // From the workshop (global) is a filled chip; typed here (local, D30) is outlined.
+            let global = np.tool_is_global(id);
             let chip = egui::Button::new(RichText::new(name).size(14.0).color(p.ink))
-                .fill(p.chip)
-                .stroke(Stroke::new(1.0, p.line))
+                .fill(if global { p.chip } else { p.panel })
+                .stroke(if global {
+                    Stroke::new(1.0, p.line)
+                } else {
+                    Stroke::new(2.0, ACCENT)
+                })
                 .corner_radius(CornerRadius::same(10));
-            if ui
-                .add(chip)
-                .on_hover_text("Untick: I don't have this")
-                .clicked()
-            {
+            let hint = if global {
+                "From your workshop. Click to leave it out of this project."
+            } else {
+                "Only for this project. Click to remove it."
+            };
+            if ui.add(chip).on_hover_text(hint).clicked() {
                 remove = Some(i);
             }
         }
@@ -1286,7 +1277,20 @@ fn tools_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
         np.tools.remove(i);
     }
     if !np.tools.is_empty() {
-        muted(ui, p, &format!("{} tools.", np.tools.len()));
+        let own = np.tools.iter().filter(|k| !np.tool_is_global(k)).count();
+        muted(
+            ui,
+            p,
+            &if own == 0 {
+                format!("{} tools.", np.tools.len())
+            } else {
+                format!(
+                    "{} tools; the {own} with an outline are only for this project. Keep your \
+                     workshop up to date in My workshop.",
+                    np.tools.len()
+                )
+            },
+        );
     }
 }
 
@@ -1343,6 +1347,16 @@ fn materials_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
                     .size(13.0)
                     .color(p.muted),
             );
+            if np.material_is_global(item) {
+                ui.label(RichText::new("your workshop").size(12.0).color(p.muted));
+            } else {
+                ui.label(
+                    RichText::new("only for this project")
+                        .size(12.0)
+                        .strong()
+                        .color(ACCENT),
+                );
+            }
             if ui.small_button("\u{d7}").on_hover_text("Remove").clicked() {
                 remove = Some(i);
             }
@@ -1703,32 +1717,66 @@ mod tests {
     }
 
     #[test]
-    fn a_project_teaches_the_workshop_only_what_is_new() {
+    fn the_snapshot_says_which_items_are_the_workshops_and_which_the_projects_own() {
         let mut np = NewProject::new(false);
         np.workshop = Workshop::read(&sample_library()).unwrap();
         np.use_workshop_tools();
         np.use_workshop_materials();
-        assert_eq!(np.workshop_news(), (Vec::new(), Vec::new()));
         np.tool_text = "a band saw".into();
         np.add_tool_words();
         np.material_text = "2 yards 500D Cordura".into();
         np.add_material();
-        let (tools, materials) = np.workshop_news();
-        assert_eq!(tools.len(), 1, "{tools:?}");
-        assert_eq!(materials, vec!["2 yards 500D Cordura".to_string()]);
+        let snapshot: serde_json::Value = serde_json::from_slice(&np.inventory_json()).unwrap();
+        assert_eq!(snapshot["version"], 2);
+        let scope_of = |list: &str, key: &str, name: &str| -> String {
+            snapshot[list]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| e[key] == name)
+                .unwrap_or_else(|| panic!("{name} is not in {list}"))["scope"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        };
+        assert_eq!(scope_of("tools", "kind", "jigsaw"), "global");
+        assert_eq!(scope_of("tools", "kind", "band_saw"), "local");
+        assert_eq!(
+            scope_of("materials", "said", "15 pine 2x4s, 3 foot"),
+            "global"
+        );
+        assert_eq!(
+            scope_of("materials", "said", "2 yards 500D Cordura"),
+            "local"
+        );
     }
 
     #[test]
-    fn what_a_project_teaches_is_there_the_next_time_the_library_opens() {
+    fn nothing_typed_into_the_quest_reaches_the_workshop_on_its_own() {
+        let library = sample_library();
+        let before = (
+            library.tools().unwrap().len(),
+            library.materials().unwrap().len(),
+        );
+        let mut np = NewProject::new(false);
+        np.workshop = Workshop::read(&library).unwrap();
+        np.tool_text = "a band saw".into();
+        np.add_tool_words();
+        np.material_text = "2 yards 500D Cordura".into();
+        np.add_material();
+        np.finish(true).unwrap();
+        let after = (
+            library.tools().unwrap().len(),
+            library.materials().unwrap().len(),
+        );
+        assert_eq!(before, after);
+    }
+
+    #[test]
+    fn a_first_run_with_no_folder_opens_an_empty_workshop() {
         let dir = std::env::temp_dir().join(format!("makercad-workshop-{}", std::process::id()));
         let path = dir.join("library.db");
-        // A first run: the folder is made, the workshop is empty.
         assert_eq!(Workshop::open(&path).unwrap(), Workshop::default());
-        let learned = Workshop::learn(&path, &["jigsaw"], &["15 pine 2x4s, 3 foot".to_string()]);
-        assert_eq!(learned.unwrap(), (1, 1));
-        let next = Workshop::open(&path).unwrap();
-        assert_eq!(next.tools, vec!["jigsaw"]);
-        assert_eq!(next.materials.len(), 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

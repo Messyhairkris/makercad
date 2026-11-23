@@ -3,8 +3,9 @@
 //! ```text
 //! makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS]
 //!          [--tab design|stock|plan|build|space|share]] [--quest STEP]
-//!          [--findings dresser|sound] [--search TEXT] [--msaa 1|2|4] [--windowed]
-//!          [--screenshot PATH] [--look daydream|pastel|night-workshop] [--size WxH]
+//!          [--findings dresser|sound] [--workshop STEP] [--finish] [--search TEXT]
+//!          [--msaa 1|2|4] [--windowed] [--screenshot PATH]
+//!          [--look daydream|pastel|night-workshop] [--size WxH]
 //! ```
 //!
 //! `--backend` picks the graphics backend for this start only; `--retest` forgets the backend
@@ -15,6 +16,8 @@
 //! something new" at step N (1 to 9) with a sample dresser's answers filled in before it, for
 //! screenshots and reviews; `--findings dresser` opens the Design workspace with Sancho's Findings
 //! panel showing the golden dresser's five seeded faults (`sound`: the same chest without them);
+//! `--workshop N` opens "My workshop" (the walkthrough for the global tools and materials) at step
+//! N (1 to 3); `--finish` opens a sample project's end-of-project offer of leftover materials;
 //! `--search` opens command
 //! search with TEXT typed; `--msaa` sets the view's anti-aliasing samples per pixel (by default 1
 //! while the view moves, and a still view is drawn once supersampled); `--windowed` does not
@@ -41,6 +44,8 @@ struct Args {
     tab: Option<Env>,
     quest: Option<usize>,
     findings: Option<bool>,
+    workshop: Option<usize>,
+    finish: bool,
     search: Option<String>,
     msaa: Option<u32>,
     windowed: bool,
@@ -50,7 +55,7 @@ struct Args {
 }
 
 const USAGE: &str = "usage: makercad [--backend dx12|vulkan|gl] [--retest] [--demo] [--sample [--fit] [--spin SECONDS] \
-                     [--tab design|stock|plan|build|space|share]] [--quest STEP] [--findings dresser|sound] [--search TEXT] [--msaa 1|2|4] [--windowed] \
+                     [--tab design|stock|plan|build|space|share]] [--quest STEP] [--findings dresser|sound] [--workshop STEP] [--finish] [--search TEXT] [--msaa 1|2|4] [--windowed] \
                      [--screenshot PATH] [--look daydream|pastel|night-workshop] [--size WxH]";
 
 fn parse_args() -> Result<Args, String> {
@@ -64,6 +69,8 @@ fn parse_args() -> Result<Args, String> {
         tab: None,
         quest: None,
         findings: None,
+        workshop: None,
+        finish: false,
         search: None,
         msaa: None,
         windowed: false,
@@ -103,6 +110,15 @@ fn parse_args() -> Result<Args, String> {
                     _ => return Err(format!("--findings dresser or sound, not {v}")),
                 });
             }
+            "--workshop" => {
+                let v = value()?;
+                let step: usize = v.parse().map_err(|_| format!("--workshop STEP, not {v}"))?;
+                if !(1..=3).contains(&step) {
+                    return Err(format!("--workshop {v} is out of range (step 1 to 3)"));
+                }
+                a.workshop = Some(step);
+            }
+            "--finish" => a.finish = true,
             "--search" => a.search = Some(value()?),
             "--msaa" => {
                 let v = value()?;
@@ -210,6 +226,8 @@ fn main() {
         tab: args.tab,
         quest: args.quest,
         findings: args.findings,
+        workshop: args.workshop,
+        finish: args.finish,
     };
     let result = eframe::run_native(
         "MakerCAD",

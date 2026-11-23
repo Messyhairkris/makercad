@@ -97,6 +97,10 @@ pub enum Act {
     Save,
     /// Show or hide the Findings panel.
     Findings,
+    /// "My workshop": the walkthrough that keeps the global tools and materials up to date.
+    Workshop,
+    /// Finish the open project: offer its leftover local materials to the workshop.
+    FinishProject,
     /// Not built yet.
     Later(Later),
 }
@@ -256,6 +260,22 @@ pub fn all(examples: &[(&'static str, &'static str)]) -> Vec<Command> {
             "View",
             Act::Findings,
         )),
+        cmd(
+            "env.stock",
+            "My workshop",
+            "",
+            "tools materials inventory stock library kit lumber wood supplies update keep up to date",
+            "Project",
+            Act::Workshop,
+        ),
+        cmd(
+            "app.intent",
+            "Finish the project",
+            "",
+            "done complete leftover leftovers remaining offcuts scraps extra materials workshop",
+            "Project",
+            Act::FinishProject,
+        ),
         // Changes.
         key(
             on_design(cmd(
