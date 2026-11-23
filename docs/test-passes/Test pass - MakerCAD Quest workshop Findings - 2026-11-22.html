@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MakerCAD Test Pass — Quest, workshop, Findings — local</title>
+<style>
+/* Deliberately no web fonts and no network of any kind: this file has to
+   work with the machine offline, because a hosted version drops typing
+   when it reconnects. Everything here is local. */
+:root{
+  --ground:#f6f8fa; --panel:#fff; --panel-2:#eef2f6;
+  --ink:#1a1e23; --muted:#5d6b79; --faint:#8b97a4;
+  --rule:#dde3ea; --rule-strong:#c4cdd7; --accent:#33556f;
+  --ok:#2f7d55; --warn:#b3761f; --na:#7d8894;
+  --live:#c0392b; --busy:#e5a33f; --idle:#9aa5b1;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ground:#14171b; --panel:#1b1f25; --panel-2:#22272e;
+    --ink:#e3e8ed; --muted:#9aa6b3; --faint:#6f7c8a;
+    --rule:#2a3038; --rule-strong:#3a424c; --accent:#8fb3ce;
+    --ok:#5aae7d; --warn:#d8a049; --na:#8a95a1;
+  }
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);margin:0;padding:0 20px 90px;
+     font:16px/1.6 Georgia,"Times New Roman",serif}
+.wrap{max-width:900px;margin:0 auto}
+h1,h2,.ui,button{font-family:"Segoe UI",system-ui,sans-serif}
+code,.mono{font-family:Consolas,"Courier New",monospace}
+
+header{padding:34px 0 18px;border-bottom:2px solid var(--ink)}
+.eyebrow{font:600 11px/1 "Segoe UI",sans-serif;letter-spacing:.14em;
+         text-transform:uppercase;color:var(--muted);
+         display:flex;gap:10px;align-items:center}
+.lamp{width:9px;height:9px;border-radius:50%;display:inline-block}
+h1{font-size:34px;margin:10px 0 6px;letter-spacing:-.02em}
+.lede{color:var(--muted);max-width:62ch;margin:0}
+
+.bar-wrap{position:sticky;top:0;z-index:9;background:var(--ground);
+          padding:11px 0;border-bottom:1px solid var(--rule);
+          display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.bar{flex:1 1 200px;height:8px;border-radius:99px;background:var(--panel-2);
+     display:flex;overflow:hidden;min-width:170px}
+.bar span{height:100%}
+.tally{font:500 12.5px "Segoe UI",sans-serif;color:var(--muted);
+       display:inline-flex;gap:6px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%}
+.saved{margin-left:auto;font:11.5px Consolas,monospace;color:var(--faint)}
+
+section{margin:34px 0 0}
+.shead{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.snum{font:500 13px Consolas,monospace;color:var(--accent)}
+h2{font-size:20px;margin:0}
+.stime{font:500 12px "Segoe UI",sans-serif;color:var(--faint);margin-left:auto}
+.snote{color:var(--muted);font-size:15px;margin:4px 0 14px;max-width:64ch}
+
+.item{background:var(--panel);border:1px solid var(--rule);border-radius:7px;
+      padding:12px 14px;margin-bottom:9px;display:grid;gap:8px;
+      grid-template-columns:1fr auto;align-items:start}
+.item[data-s="ok"]{border-left:3px solid var(--ok)}
+.item[data-s="warn"]{border-left:3px solid var(--warn);background:var(--panel-2)}
+.item[data-s="na"]{border-left:3px solid var(--na);opacity:.7}
+.what b{font:600 15px "Segoe UI",sans-serif;display:block;margin-bottom:2px}
+.what p{margin:2px 0 0;font-size:14.5px;color:var(--muted)}
+.expect{margin-top:6px;padding:7px 9px;border-radius:5px;background:var(--panel-2);
+        font:13.5px Consolas,monospace;white-space:pre-wrap;overflow-x:auto}
+.new{display:inline-block;font:600 11px "Segoe UI",sans-serif;letter-spacing:.05em;
+     text-transform:uppercase;color:var(--live);border:1px solid var(--live);
+     border-radius:4px;padding:1px 6px;margin-left:8px;vertical-align:2px}
+.picks{display:flex;gap:5px}
+button.pick{font:500 12px "Segoe UI",sans-serif;border:1px solid var(--rule-strong);
+      background:transparent;color:var(--muted);border-radius:5px;
+      padding:5px 9px;cursor:pointer;white-space:nowrap}
+button.pick:hover{border-color:var(--accent);color:var(--ink)}
+button.pick[aria-pressed=true][data-v=ok]{background:var(--ok);border-color:var(--ok);color:#fff}
+button.pick[aria-pressed=true][data-v=warn]{background:var(--warn);border-color:var(--warn);color:#fff}
+button.pick[aria-pressed=true][data-v=na]{background:var(--na);border-color:var(--na);color:#fff}
+.note{grid-column:1/-1}
+textarea{width:100%;min-height:38px;padding:8px 10px;border-radius:5px;
+         border:1px solid var(--rule);background:var(--panel-2);color:var(--ink);
+         font:14px "Segoe UI",sans-serif;line-height:1.45;resize:vertical}
+textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;background:var(--panel)}
+
+/* Final notes — the catch-all. Prompts are listed because a blank box gets
+   a blank answer, and this section is usually the most useful in the pass. */
+.final{background:var(--panel);border:1px solid var(--rule-strong);border-radius:7px;
+       padding:16px 18px;margin-top:12px}
+.final .prompts{margin:0 0 14px;padding-left:20px;color:var(--muted);font-size:14.5px}
+.final .prompts li{margin:3px 0}
+.final label{display:block;font:600 13.5px "Segoe UI",sans-serif;margin:14px 0 5px}
+.final label:first-of-type{margin-top:0}
+
+.tools{position:fixed;right:18px;bottom:18px;display:flex;gap:8px;z-index:20}
+.tools button{font:600 13px "Segoe UI",sans-serif;padding:9px 14px;border-radius:7px;
+   border:1px solid var(--rule-strong);background:var(--panel);color:var(--ink);
+   cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.tools button:hover{border-color:var(--accent)}
+#out{position:fixed;inset:6% 8%;background:var(--panel);border:1px solid var(--rule-strong);
+     border-radius:9px;padding:16px;z-index:30;display:none;flex-direction:column;gap:10px;
+     box-shadow:0 10px 40px rgba(0,0,0,.35)}
+#out textarea{flex:1;font:13px Consolas,monospace;min-height:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">
+    <span class="lamp" style="background:var(--live)"></span>
+    <span class="lamp" style="background:var(--busy)"></span>
+    <span class="lamp" style="background:var(--idle)"></span>
+    <span>MakerCAD · 2026-11-22 · local copy · nothing leaves this machine</span>
+  </div>
+  <h1>Quest, workshop and Findings</h1>
+  <p class="lede">Written for your look at noon. It covers what changed since your last pass: the Quest, the workshop library, the Findings panel, and the Crew's modules. Saves to this browser as you type; <b>Export findings</b> gives text to paste back into the conversation. Points about things I could not check myself say so.</p>
+</header>
+
+<div class="bar-wrap">
+  <div class="bar" id="bar"></div>
+  <div id="tally"></div>
+  <div class="saved" id="saved">ready</div>
+</div>
+
+<div id="body"></div>
+</div>
+
+<div class="tools">
+  <button onclick="exportAll()">Export findings</button>
+</div>
+
+<div id="out">
+  <b class="ui">Copy this and paste it back into the conversation</b>
+  <textarea id="outText" readonly></textarea>
+  <div style="display:flex;gap:8px">
+    <button onclick="copyOut()">Copy to clipboard</button>
+    <button onclick="document.getElementById('out').style.display='none'">Close</button>
+  </div>
+</div>
+
+<script id="seed" type="application/json">
+{}
+</script>
+
+<script>
+/* Sections: {n, t, time, note, items[]}
+   Item:     {id, t, isnew, d, e}
+     id    stable key — changing it drops that answer from a saved pass
+     t     short title
+     d     what to do (HTML allowed: <b>, <i>, <code>)
+     e     what you should see — concrete and observable, shown in the mono block.
+           Say why it behaves that way when the cause is interesting, and ask a
+           direct question here when you need one answered. */
+const ITEMS = [
+ {
+  "n": "00",
+  "t": "Start it up",
+  "time": "~5 min",
+  "note": "A debug build of today's work sits at <code>C:\\Users\\you\\MakerCAD\\makercad\\third_party\\solidcraft\\target\\debug\\makercad.exe</code> (it opens a little slower than the release build will). The cloud also builds a release <code>makercad.exe</code> for every push: GitHub, <code>Messyhairkris/makercad</code>, Actions. I have not measured the release build's start time on this PC, so the \"under 2 seconds\" goal of P1 is still unchecked.",
+  "items": [
+   {
+    "id": "start_open",
+    "t": "The window opens to the opening screen",
+    "isnew": 0,
+    "d": "Double-click the exe above (or the release one, if you have downloaded it).",
+    "e": "A window with the opening screen. The first card is \"Start something new\". Tell me how long it took from double-click to a drawn window, roughly: under 5 seconds, 5 to 15, longer."
+   },
+   {
+    "id": "start_profile",
+    "t": "The hardware profile was written on the first start",
+    "isnew": 1,
+    "d": "Open <code>%LOCALAPPDATA%\\MakerCAD\\profile.toml</code> in Notepad. (To see it written again, close MakerCAD, delete that file, start MakerCAD, wait 20 seconds.)",
+    "e": "Comment lines say \"dx12: ok Intel(R) HD Graphics 530\" and \"gl: ok Intel(R) HD Graphics 530\", then \"4 cores, 7885 MB RAM\", then [profile] with class = \"potato\" and backend = \"dx12\". This is what I saw on this PC at about 21:00. The window must not freeze while the probe runs."
+   }
+  ]
+ },
+ {
+  "n": "01",
+  "t": "Start something new (the Quest)",
+  "time": "~15 min",
+  "note": "The first card on the opening screen. Nine questions, every one skippable; the right-hand card \"What your answers set up\" changes as you answer. The questions, the reading of your words and the scale guess are the Crew's modules; I drew the screen. I checked it with screenshots and 71 unit tests, not by using it for a real project, so this is the first real use.",
+  "items": [
+   {
+    "id": "q_rail",
+    "t": "The nine steps are on the left",
+    "isnew": 0,
+    "d": "Click <b>Start something new</b>.",
+    "e": "A rail down the left: Name it, What to make, Where it fits, Your tools, Your materials, When you need it, Budget, What inspires you, Your workspace. The first is highlighted. Top right: \"Skip to designing\" and \"Cancel\"."
+   },
+   {
+    "id": "q_goal",
+    "t": "Your words set up environments, with a reason each",
+    "isnew": 0,
+    "d": "Name it: <b>Alcove dresser</b>. Next. What to make: <b>a dresser for the alcove</b>. Next.",
+    "e": "\"What your answers set up\" lists Solid, Sketch and Stock & Cut, each followed by \"because you said “dresser”\". If it says something that does not follow from your words, that is a bug: write it down."
+   },
+   {
+    "id": "q_fit",
+    "t": "A typed size sets the scale class",
+    "isnew": 0,
+    "d": "Where it fits: choose the option that lets you type sizes and enter <b>1500 mm</b> (or <b>60 in</b> if the window is in inches).",
+    "e": "Scale reads \"Furniture, its longest size is 1500 mm.\" with a line about a floor patch and Sancho at true size, grid 10 mm. Try <b>6 in</b> instead: it should become Bench."
+   },
+   {
+    "id": "q_skip",
+    "t": "Skipping is allowed and visible",
+    "isnew": 0,
+    "d": "On any step press <b>Skip for now</b>.",
+    "e": "The rail shows a dash for that step instead of a green tick, and you move on. At the end the project says how many questions are still open (it is a number in the notice after you make the project)."
+   },
+   {
+    "id": "q_date",
+    "t": "A date that is not a date is refused",
+    "isnew": 0,
+    "d": "When you need it: type <b>soon</b> and press Next. Then type <b>2026-12-24</b>.",
+    "e": "\"soon\" stays on the step with a message that it is not a date; 2026-12-24 moves on. Budget: \"150\" is accepted, \"lots\" is refused."
+   }
+  ]
+ },
+ {
+  "n": "02",
+  "t": "Use my workshop (new today)",
+  "time": "~10 min",
+  "note": "The workshop is a SQLite file, <code>%LOCALAPPDATA%\\MakerCAD\\library.db</code>: one per person, not per project. Opening the Quest makes an empty one if there is none. To try it without touching that file, open a Command Prompt in the repo folder and run:<br><code>python tools\\make_sample_library.py %TEMP%\\sample-library.db</code><br><code>set MAKERCAD_LIBRARY=%TEMP%\\sample-library.db</code><br><code>third_party\\solidcraft\\target\\debug\\makercad.exe</code><br>The sample holds 13 tools (10 owned, 1 shared, 1 wishlist, 1 at a makerspace) and 3 material lines. Do not run the script against <code>library.db</code> itself: it replaces the file.",
+  "items": [
+   {
+    "id": "w_tools",
+    "t": "The tools step offers your workshop",
+    "isnew": 1,
+    "d": "Start something new, go to <b>Your tools</b> (step 4).",
+    "e": "\"Your workshop has 11 tools I know (2 more are on a wishlist, borrowed, or not known to me yet).\" and a button <b>Use my workshop</b>. (11 = the 10 owned plus the shared router; the wishlist drill press and the makerspace track saw are the 2.)"
+   },
+   {
+    "id": "w_use",
+    "t": "Using it lists the tools once",
+    "isnew": 1,
+    "d": "Press <b>Use my workshop</b>, then press it again if it is still there.",
+    "e": "Chips for the tools appear (Tape measure, Square, Clamps, Hand saw, Hammer, Screwdrivers, Drill driver, Jigsaw, Circular saw, Sander, Router). Clicking a chip removes it (\"Untick: I don't have this\"). Nothing is added twice. The button disappears once every workshop tool is listed."
+   },
+   {
+    "id": "w_materials",
+    "t": "The materials step offers the material lines",
+    "isnew": 1,
+    "d": "Go to <b>Your materials</b> (step 5) and press <b>Use my workshop</b>.",
+    "e": "\"Your workshop has 3 material lines on hand.\" Then three lines: 15 pine boards 38 × 89 mm and 914 mm long; 1 plywood sheet 19 mm thick; 2 oak boards. Each is shown with the words it came from (\"15 pine 2x4s, 3 foot\", \"half sheet 3/4 ply\", \"2 oak 1x6s, 4 foot\") and a × to remove it. The exact sizes shown for the plywood and oak are what the file holds; tell me if any looks wrong."
+   },
+   {
+    "id": "w_learn",
+    "t": "A new project teaches the workshop what it lacked",
+    "isnew": 1,
+    "d": "Add one tool the sample does not have (type <b>band saw</b>) and one material line (<b>2 yards 500D Cordura</b>). Go to the end and make the project. Then close, start again with the same <code>MAKERCAD_LIBRARY</code>, and look at the tools step.",
+    "e": "The notice after making the project ends with \"Your workshop learned 1 tool and 1 material line.\" (I changed the wording after my last screenshot, so check the singular.) The next Quest says the workshop has 12 tools I know and 4 material lines. I tested this with unit tests only."
+   }
+  ]
+ },
+ {
+  "n": "03",
+  "t": "Making the project",
+  "time": "~5 min",
+  "note": "Confirming the last step, or \"Skip to designing\" at any time, makes a project file. I have not looked at the Design workspace that opens on the new, empty design, so I do not know what it looks like.",
+  "items": [
+   {
+    "id": "m_make",
+    "t": "A project file is made and saved",
+    "isnew": 0,
+    "d": "On step 9, confirm (or press <b>Skip to designing</b> from any step).",
+    "e": "The Design workspace opens with a message \"Alcove dresser is made and saved as Alcove dresser.maker.\" and a count of open questions. The file is in <code>Documents\\MakerCAD\\</code>. Making a second project with the same name gives \"Alcove dresser 2.maker\", never replaces the first."
+   },
+   {
+    "id": "m_empty",
+    "t": "The empty design looks right",
+    "isnew": 1,
+    "d": "Look at what opened.",
+    "e": "Say what you see. I expect the stage for the scale class (a floor patch for Furniture) and Sancho beside it, with nothing modelled. I did not check this myself."
+   },
+   {
+    "id": "m_reopen",
+    "t": "Keep going: the project comes back",
+    "isnew": 0,
+    "d": "Go Home (the house icon, top left). Look at the list; open the project you just made.",
+    "e": "The opening screen lists it newest first with \"saved today\". Opening it gives back the empty design and its name."
+   }
+  ]
+ },
+ {
+  "n": "04",
+  "t": "Sancho's Findings panel (new today)",
+  "time": "~10 min",
+  "note": "This panel draws the Crew's models: how findings are sorted and counted, and the \"Why?\" derivations. It shows <b>the golden dresser's findings</b>, not the design you have open: the window cannot yet read a design's parts, materials and loads into the facts the rules read (the Crew has built the geometry for that, <code>design_facts</code>, and it is not connected). The golden dresser is the P2 exit fixture: a three-drawer chest that the four rule packs leave alone, with five faults seeded.",
+  "items": [
+   {
+    "id": "f_open",
+    "t": "Open the panel",
+    "isnew": 1,
+    "d": "Open the sample plate (Examples on the opening screen), press <b>Ctrl+K</b>, type <b>findings</b>, choose <b>Show the findings</b>. (Or start the exe with <code>--findings dresser</code>.)",
+    "e": "A panel on the right: \"Sancho's findings\", \"5 things to look at, 1 serious\", and a small grey note that this is the golden dresser, a demonstration and not your design. Under \"Critical (1)\": \"screw_1 pokes out\" with a red dot. Under \"Warning (4)\": the chest tipping over, the top sagging, a screw near an edge, and a missing tool, each with a yellow dot."
+   },
+   {
+    "id": "f_sag",
+    "t": "The sag has real numbers",
+    "isnew": 1,
+    "d": "Scroll to \"carcase_top sags about 2.2 mm\".",
+    "e": "Its reason reads: over 864 mm, 12 mm of wood.softwood.pine carrying 20 kg per metre sags about 2.2 mm; more than 1.7 mm shows. Those numbers are handbook-range values I marked \"not yet sourced\" (pine 10,000 MPa, 2 mm of sag per metre of span allowed). Do they read as a real warning or as a made-up one?"
+   },
+   {
+    "id": "f_why",
+    "t": "Why? opens the derivation",
+    "isnew": 1,
+    "d": "On \"screw_1 pokes out\" press <b>Why?</b>.",
+    "e": "A box under it titled \"Screw through the stock\": fastener screw_1, length_mm 40, stock_mm 36, then a rule saying a screw longer than the stock passes through and must stop inside it. The button changes to \"Hide why\". The row labels are still the raw names (length_mm): is that too technical for you?"
+   },
+   {
+    "id": "f_dismiss",
+    "t": "Dismiss and bring it back",
+    "isnew": 1,
+    "d": "Press <b>Dismiss</b> on \"screw_1 pokes out\", then <b>Bring it back</b>.",
+    "e": "After dismissing: the headline reads \"4 things to look at\" (no \"serious\" any more), the card greys and says \"dismissed\". Tick \"Hide the ones I dismissed\" and it disappears; untick and it returns. Bringing it back restores \"5 things to look at, 1 serious\"."
+   },
+   {
+    "id": "f_group",
+    "t": "Group by",
+    "isnew": 1,
+    "d": "Press <b>Kind</b>, then <b>Place</b>, then <b>How serious</b>.",
+    "e": "The same five findings under different headings each time (kinds in words; places named by their ids, such as chest, screw_1 and Step 4). Nothing is lost or doubled."
+   },
+   {
+    "id": "f_sound",
+    "t": "The clean chest says nothing",
+    "isnew": 1,
+    "d": "Close MakerCAD and start it with <code>--findings sound</code> (from a Command Prompt: <code>makercad.exe --findings sound</code>).",
+    "e": "\"Nothing to look at\" and \"Nothing to look at. Sancho has no findings for this design.\" This is the \"0 false flags\" half of the P2 exit test."
+   },
+   {
+    "id": "f_demo",
+    "t": "Is the demonstration note clear enough?",
+    "isnew": 1,
+    "d": "Read the grey note at the top of the panel as if you had not read this page.",
+    "e": "It says: \"Shown for the golden dresser with its five seeded faults: a demonstration, not your design (the window cannot read a design's facts yet).\" Would you have been misled into thinking these are findings about your design? If so, say how you would word it."
+   }
+  ]
+ },
+ {
+  "n": "05",
+  "t": "Older things, one line each",
+  "time": "~5 min",
+  "note": "These are from earlier days. If you already checked them, mark n/a.",
+  "items": [
+   {
+    "id": "o_save",
+    "t": "Save with Ctrl+S",
+    "isnew": 0,
+    "d": "Open the sample plate, press <b>Ctrl+S</b>.",
+    "e": "A notice that it was saved, and a .maker file in Documents\\MakerCAD. A second save keeps the previous one beside it as a .backup file."
+   },
+   {
+    "id": "o_sancho",
+    "t": "Sancho beside the design",
+    "isnew": 0,
+    "d": "On a design, look at the top bar toggle \"Sancho 1.68 m\" and press it.",
+    "e": "A figure about 1.68 m tall stands to the design's right on the floor patch; the toggle hides and shows him. The figure is a free placeholder (BodyKun); you are designing the real Sancho."
+   },
+   {
+    "id": "o_cloud",
+    "t": "The cloud checks are green",
+    "isnew": 0,
+    "d": "Open github.com/Messyhairkris/makercad/actions and look at the newest runs.",
+    "e": "Runs #24, #25 and #26 finished green (both the gates and the Windows build); #27's gates were green when I last looked and its Windows build was still running. Every run builds a test <code>makercad.exe</code> you can download."
+   }
+  ]
+ },
+ {
+  "n": "06",
+  "t": "What the Crew built today",
+  "time": "~5 min",
+  "note": "Gordon wrote contracts, reference code and hidden tests as a PA; Deepak, Hoss, Kimi and Qwen wrote the modules and a second set of tests; I checked each with mutation testing (seeded bugs the tests must catch) and wrote the missing tests by hand where they did not. Everything is in <code>STATUS.md</code>, one row per module.",
+  "items": [
+   {
+    "id": "c_status",
+    "t": "Skim the STATUS rows",
+    "isnew": 1,
+    "d": "Open <code>STATUS.md</code> in the repo and read the bold rows for the mk-assist, mk-sancho, mk-log, mk-inventory and mk-project modules.",
+    "e": "Each row says what the module does in plain words, who wrote what, how many requests it took, and how many seeded bugs the tests caught. Modules added since you last looked include the golden dresser (five faults, no false flags), design_facts (boxes to the facts the structure rules read), why, voice, toolbox, panel, intent_card, stage, drift and observations. Tell me if a row is written in words you do not follow."
+   }
+  ]
+ },
+ {
+  "n": "07",
+  "t": "Your call",
+  "time": "~5 min",
+  "note": "Three decisions only you can make. The numbers are real; I have not tucked a recommendation into the question.",
+  "items": [
+   {
+    "id": "y_material",
+    "t": "Where does a part's material come from?",
+    "isnew": 1,
+    "d": "To show findings about your own design the window must know each part's material.",
+    "e": "Today SolidCraft bodies carry no wood species, so the sag and thin-wall rules would stay silent (silence over a guess is the rule). Options: (a) a small list beside the design where you pick a material for each part; (b) default every part to the first board you listed in the Quest; (c) wait for Stock & Cut (P3), where parts get their boards. Which?"
+   },
+   {
+    "id": "y_numbers",
+    "t": "Sourced numbers, or marked handbook values?",
+    "isnew": 1,
+    "d": "The structure rules need each material's stiffness and limits, and a sag allowance.",
+    "e": "Now: pine 10,000 MPa, plywood 6,000 MPa, 2 mm of sag per metre of span, marked \"not yet sourced\". I can have Gordon research real figures with cited sources (he is the most accurate at quoting them), and I would check each against its source. Until then, should the panel show warnings built on unsourced numbers at all, or stay silent for any material without sourced values?"
+   },
+   {
+    "id": "y_relevant",
+    "t": "\"You have 41 tools; these 9 matter for a dresser\"",
+    "isnew": 1,
+    "d": "Doc 05 section 5.3 promises the Quest narrows your workshop to what the project needs.",
+    "e": "Today \"Use my workshop\" copies every tool you own into the project. Narrowing needs a table of which tools each kind of project needs; the Crew can write it, and it would be a guess for any kind of project the table lacks. Do it now, or leave \"all my tools\" until a plan exists to say which steps need which tool?"
+   }
+  ]
+ }
+];
+
+/* Final notes prompts — edit freely, but keep them as questions. */
+const FINAL = [
+  {id:"f_obs",   label:"Observations",
+   ph:"Anything at all.",
+   prompts:["Anything you noticed that none of the questions above asked about?",
+            "Anything that felt slow, awkward, confusing, or ugly?",
+            "Anything that worked better than you expected?",
+            "Did you do anything the instructions did not cover?"]},
+  {id:"f_first", label:"If you could only fix one thing", ph:"The one that mattered most."},
+  {id:"f_env",   label:"Anything about your setup worth knowing",
+   ph:"Browser, machine, screen size, what else was running."}
+];
+
+const KEY = "makercad-p2-quest-workshop-findings-v1";
+const ALL = ITEMS.flatMap(s => s.items.map(i => i.id));
+let state = {};
+try {
+  const saved = localStorage.getItem(KEY);
+  state = saved ? JSON.parse(saved)
+                : JSON.parse(document.getElementById("seed").textContent);
+} catch (e) {
+  try { state = JSON.parse(document.getElementById("seed").textContent); }
+  catch (e2) { state = {}; }
+}
+
+function esc(s){ return String(s==null?"":s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function save(msg){
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    document.getElementById("saved").textContent =
+      msg || ("saved " + new Date().toLocaleTimeString());
+  } catch (e) {
+    document.getElementById("saved").textContent =
+      "NOT SAVED - browser storage blocked. Use Export before closing.";
+  }
+}
+
+function render(){
+  let h = "";
+  for (const sec of ITEMS){
+    h += '<section><div class="shead"><span class="snum">' + sec.n + '</span>'
+       + '<h2>' + esc(sec.t) + '</h2>'
+       + (sec.time ? '<span class="stime">' + esc(sec.time) + '</span>' : '')
+       + '</div>'
+       + (sec.note ? '<p class="snote">' + sec.note + '</p>' : '');
+    for (const it of sec.items){
+      const st = state[it.id] || {};
+      h += '<div class="item" data-s="' + esc(st.s || "") + '">'
+         + '<div class="what"><b>' + esc(it.t)
+         + (it.isnew ? '<span class="new">new</span>' : '') + '</b>'
+         + (it.d ? '<p>' + it.d + '</p>' : '')
+         + (it.e ? '<div class="expect">' + esc(it.e) + '</div>' : '')
+         + '</div><div class="picks">'
+         + ["ok","warn","na"].map(v =>
+             '<button class="pick" data-v="' + v + '" data-id="' + it.id + '" '
+             + 'aria-pressed="' + (st.s === v) + '">'
+             + (v === "ok" ? "OK" : v === "warn" ? "Needs work" : "n/a")
+             + '</button>').join("")
+         + '</div><div class="note"><textarea data-id="' + it.id
+         + '" placeholder="What happened?">' + esc(st.n || "") + '</textarea></div></div>';
+    }
+    h += '</section>';
+  }
+
+  h += '<section><div class="shead"><span class="snum">' + String(ITEMS.length).padStart(2,"0")
+     + '</span><h2>Final notes</h2></div>'
+     + '<p class="snote">The questions above cannot cover everything. This is where the '
+     + 'rest goes — it is usually the most useful part of the pass.</p><div class="final">';
+  for (const f of FINAL){
+    const st = state[f.id] || {};
+    if (f.prompts) h += '<ul class="prompts">' + f.prompts.map(p => '<li>' + esc(p) + '</li>').join("") + '</ul>';
+    h += '<label for="' + f.id + '">' + esc(f.label) + '</label>'
+       + '<textarea id="' + f.id + '" data-id="' + f.id + '" placeholder="' + esc(f.ph || "")
+       + '">' + esc(st.n || "") + '</textarea>';
+  }
+  h += '</div></section>';
+
+  document.getElementById("body").innerHTML = h;
+  for (const ta of document.querySelectorAll("textarea[data-id]")) grow(ta);
+  paint();
+}
+
+function grow(ta){ ta.style.height="auto"; ta.style.height=Math.max(38,ta.scrollHeight)+"px"; }
+
+function paint(){
+  let ok=0, warn=0, na=0;
+  for (const id of ALL){
+    const v = (state[id]||{}).s;
+    if (v==="ok") ok++; else if (v==="warn") warn++; else if (v==="na") na++;
+  }
+  const total = ALL.length, pc = v => (v/total*100).toFixed(2)+"%";
+  document.getElementById("bar").innerHTML =
+      '<span style="width:'+pc(ok)+';background:var(--ok)"></span>'
+    + '<span style="width:'+pc(warn)+';background:var(--warn)"></span>'
+    + '<span style="width:'+pc(na)+';background:var(--na)"></span>';
+  document.getElementById("tally").innerHTML =
+      '<span class="tally"><i class="dot" style="background:var(--ok)"></i>'+ok+' OK</span> '
+    + '<span class="tally"><i class="dot" style="background:var(--warn)"></i>'+warn+' need work</span> '
+    + '<span class="tally">'+(ok+warn+na)+' / '+total+'</span>';
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("button.pick");
+  if (!b) return;
+  const id = b.dataset.id, v = b.dataset.v;
+  const cur = state[id] || {};
+  cur.s = (cur.s === v) ? "" : v;
+  state[id] = cur;
+  const row = b.closest(".item");
+  row.dataset.s = cur.s;
+  for (const p of row.querySelectorAll("button.pick"))
+    p.setAttribute("aria-pressed", String(p.dataset.v === cur.s));
+  paint(); save();
+});
+
+// Save on every keystroke. A hosted version debounced and lost typing when it
+// reconnected; there is no network here, so there is no reason to wait.
+document.addEventListener("input", e => {
+  const ta = e.target.closest("textarea[data-id]");
+  if (!ta) return;
+  const cur = state[ta.dataset.id] || {};
+  cur.n = ta.value;
+  state[ta.dataset.id] = cur;
+  grow(ta); save();
+});
+window.addEventListener("beforeunload", () => save());
+
+function exportAll(){
+  const lines = ["MakerCAD test pass — " + new Date().toLocaleString(), ""];
+  let ok=0, warn=0, na=0;
+  for (const id of ALL){
+    const v = (state[id]||{}).s;
+    if (v==="ok") ok++; else if (v==="warn") warn++; else if (v==="na") na++;
+  }
+  lines.push(ok + " OK · " + warn + " need work · " + na + " n/a · "
+             + (ok+warn+na) + " of " + ALL.length + " answered", "");
+  for (const sec of ITEMS){
+    const rows = sec.items.filter(i => state[i.id] &&
+                 ((state[i.id].s) || (state[i.id].n || "").trim()));
+    if (!rows.length) continue;
+    lines.push("## " + sec.t);
+    for (const it of rows){
+      const st = state[it.id];
+      lines.push("- [" + (st.s || "—") + "] " + it.t);
+      if ((st.n || "").trim()) lines.push("      " + st.n.trim().replace(/\n+/g, " "));
+    }
+    lines.push("");
+  }
+  // Final notes always export, even when every point was skipped — often the
+  // only thing in the pass worth reading.
+  const wrote = FINAL.filter(f => ((state[f.id]||{}).n || "").trim());
+  lines.push("## Final notes");
+  if (!wrote.length) lines.push("(none)");
+  for (const f of wrote) lines.push("- " + f.label + ": " + state[f.id].n.trim().replace(/\n+/g, " "));
+  lines.push("");
+
+  const box = document.getElementById("out");
+  document.getElementById("outText").value = lines.join("\n");
+  box.style.display = "flex";
+}
+
+function copyOut(){
+  const ta = document.getElementById("outText");
+  ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  if (navigator.clipboard) navigator.clipboard.writeText(ta.value).catch(()=>{});
+}
+
+render();
+save("loaded — your previous answers are carried over");
+</script>
+</body>
+</html>

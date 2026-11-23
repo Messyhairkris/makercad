@@ -246,7 +246,7 @@ impl MakerApp {
             }
         }
         if let Some(step) = app.launch.quest {
-            let mut quest = quest_screen::NewProject::new(app.units != Units::Mm);
+            let mut quest = app.new_quest();
             quest.fill_sample();
             quest.go_to(step.saturating_sub(1));
             app.quest = Some(quest);
@@ -534,7 +534,8 @@ impl MakerApp {
                 None
             }
             HomeAction::StartNew => {
-                self.quest = Some(quest_screen::NewProject::new(self.units != Units::Mm));
+                let quest = self.new_quest();
+                self.quest = Some(quest);
                 self.screen = Screen::Quest;
                 None
             }
@@ -958,6 +959,18 @@ impl MakerApp {
         }
     }
 
+    /// A new Quest, with the maker's workshop read from the library when it can be.
+    fn new_quest(&self) -> quest_screen::NewProject {
+        let mut quest = quest_screen::NewProject::new(self.units != Units::Mm);
+        if let Some(path) = quest_screen::library_path() {
+            match quest_screen::Workshop::open(&path) {
+                Ok(workshop) => quest.workshop = workshop,
+                Err(e) => eprintln!("makercad: the workshop library could not be read: {e}"),
+            }
+        }
+        quest
+    }
+
     /// Makes the project the Quest describes, saves it, and opens it on an empty design.
     /// Returns what to tell the person.
     fn create_project(&mut self, skip_rest: bool) -> String {
@@ -968,6 +981,8 @@ impl MakerApp {
             Ok(created) => created,
             Err(e) => return format!("Not made: {e}"),
         };
+        // What this project knows that the workshop doesn't: written down once it is made.
+        let news = np.workshop_news();
         let mut project = match project_file::Project::new(&created.name, &created.goal) {
             Ok(project) => project,
             Err(e) => return format!("Not made: {e}"),
@@ -1012,6 +1027,22 @@ impl MakerApp {
                 " {} questions are still open for later.",
                 created.outstanding.len()
             ));
+        }
+        if let (Some(path), false) = (
+            quest_screen::library_path(),
+            news.0.is_empty() && news.1.is_empty(),
+        ) {
+            match quest_screen::Workshop::learn(&path, &news.0, &news.1) {
+                Ok((tools, materials)) => {
+                    let s = |n: usize| if n == 1 { "" } else { "s" };
+                    text.push_str(&format!(
+                        " Your workshop learned {tools} tool{} and {materials} material line{}.",
+                        s(tools),
+                        s(materials)
+                    ));
+                }
+                Err(e) => eprintln!("makercad: the workshop library was not updated: {e}"),
+            }
         }
         text
     }

@@ -10,8 +10,10 @@
 
 use egui::{vec2, Align, CornerRadius, Frame, Key, Layout, Margin, RichText, Stroke, Ui};
 use mk_assist::interpret::{self, Interpretation, Why};
+use mk_inventory::library::{Library, LibraryError};
 use mk_inventory::quickadd::{quick_add, Item, Kind};
 use mk_inventory::taxonomy;
+use mk_inventory::taxonomy_data::Access;
 use mk_log::quest::{self, Answer, AnswerKind, FitPick, Quest, StepId, Template};
 use mk_project::project::{is_real_date, Budget, Date};
 use serde_json::json;
@@ -97,6 +99,83 @@ pub struct EnvNote {
     pub question: bool,
 }
 
+/// Where the workshop library lives: `%LOCALAPPDATA%\MakerCAD\library.db`, beside the graphics
+/// memory and the hardware profile (one per person, not per project). `MAKERCAD_LIBRARY`
+/// names another file, for screenshots and checks.
+pub fn library_path() -> Option<std::path::PathBuf> {
+    if let Some(path) = std::env::var_os("MAKERCAD_LIBRARY") {
+        return Some(path.into());
+    }
+    crate::graphics::memory_path().map(|p| p.with_file_name("library.db"))
+}
+
+/// What the maker's workshop holds, offered at the tools and materials steps ("Workshop once,
+/// projects forever": doc 05 section 5.3).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Workshop {
+    /// Tool kinds the maker has (owned or shared) that the taxonomy knows, without repeats.
+    pub tools: Vec<&'static str>,
+    /// Tools in the library that are not offered: a wishlist, a makerspace's or a rental, or a
+    /// kind the taxonomy doesn't know.
+    pub left_out: usize,
+    /// Material lines on hand.
+    pub materials: Vec<Item>,
+}
+
+impl Workshop {
+    /// Reads the workshop out of the library file at `path` (made, empty, when there is none).
+    pub fn open(path: &std::path::Path) -> Result<Workshop, LibraryError> {
+        if let Some(folder) = path.parent() {
+            // A first run: the folder may not exist yet. A failure shows up as the open's error.
+            let _ = std::fs::create_dir_all(folder);
+        }
+        Workshop::read(&Library::open(path)?)
+    }
+
+    /// Reads the workshop out of an open library.
+    pub fn read(library: &Library) -> Result<Workshop, LibraryError> {
+        let mut workshop = Workshop::default();
+        for tool in library.tools()? {
+            let have = matches!(tool.access, Access::Owned | Access::Shared);
+            match taxonomy::tool(&tool.kind) {
+                Some(known) if have => {
+                    if !workshop.tools.contains(&known.id) {
+                        workshop.tools.push(known.id);
+                    }
+                }
+                _ => workshop.left_out += 1,
+            }
+        }
+        workshop.materials = library
+            .materials()?
+            .into_iter()
+            .filter(|m| m.on_hand)
+            .map(|m| m.item)
+            .collect();
+        Ok(workshop)
+    }
+
+    /// Writes down what a project added that the workshop didn't have: the tool kinds as owned,
+    /// the material lines as said. Returns how many tools and materials were added.
+    pub fn learn(
+        path: &std::path::Path,
+        tools: &[&'static str],
+        materials: &[String],
+    ) -> Result<(usize, usize), LibraryError> {
+        let library = Library::open(path)?;
+        for kind in tools {
+            library.add_tool(kind, "", Access::Owned, None)?;
+        }
+        let mut added = 0;
+        for said in materials {
+            if library.add_material(said).is_ok() {
+                added += 1;
+            }
+        }
+        Ok((tools.len(), added))
+    }
+}
+
 /// What confirming the Quest makes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Created {
@@ -139,6 +218,8 @@ pub struct NewProject {
     pub hint: Option<String>,
     /// Bare numbers in the size box are inches, not millimetres.
     pub inches: bool,
+    /// The maker's workshop, when the library could be read.
+    pub workshop: Workshop,
 }
 
 impl NewProject {
@@ -164,7 +245,72 @@ impl NewProject {
             note_text: String::new(),
             hint: None,
             inches,
+            workshop: Workshop::default(),
         }
+    }
+
+    /// The workshop tool kinds this project doesn't list yet.
+    pub fn workshop_tools_missing(&self) -> Vec<&'static str> {
+        self.workshop
+            .tools
+            .iter()
+            .copied()
+            .filter(|k| !self.tools.contains(k))
+            .collect()
+    }
+
+    /// The workshop's material lines this project doesn't list yet.
+    pub fn workshop_materials_missing(&self) -> Vec<Item> {
+        self.workshop
+            .materials
+            .iter()
+            .filter(|m| !self.materials.iter().any(|mine| mine.text == m.text))
+            .cloned()
+            .collect()
+    }
+
+    /// Lists every tool of the workshop (the maker unticks any not needed here).
+    pub fn use_workshop_tools(&mut self) {
+        let missing = self.workshop_tools_missing();
+        self.hint = Some(format!(
+            "Your workshop: {} added. Untick any you won't use here.",
+            match missing.len() {
+                1 => "1 tool".to_string(),
+                n => format!("{n} tools"),
+            }
+        ));
+        self.tools.extend(missing);
+    }
+
+    /// Lists every material line the workshop has on hand.
+    pub fn use_workshop_materials(&mut self) {
+        let missing = self.workshop_materials_missing();
+        self.hint = Some(format!(
+            "Your workshop: {} added. Remove any you won't use here.",
+            match missing.len() {
+                1 => "1 material line".to_string(),
+                n => format!("{n} material lines"),
+            }
+        ));
+        self.materials.extend(missing);
+    }
+
+    /// What this project knows that the workshop doesn't: tool kinds and material lines to write
+    /// down when the project is made ("Workshop once, projects forever").
+    pub fn workshop_news(&self) -> (Vec<&'static str>, Vec<String>) {
+        let tools = self
+            .tools
+            .iter()
+            .copied()
+            .filter(|k| !self.workshop.tools.contains(k))
+            .collect();
+        let materials = self
+            .materials
+            .iter()
+            .filter(|m| !self.workshop.materials.iter().any(|w| w.text == m.text))
+            .map(|m| m.text.clone())
+            .collect();
+        (tools, materials)
     }
 
     /// A sample dresser's answers, for `--quest` screenshots: every step before the review is
@@ -1077,6 +1223,26 @@ fn fit_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
 }
 
 fn tools_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
+    if !np.workshop_tools_missing().is_empty() {
+        ui.horizontal_wrapped(|ui| {
+            let more = match np.workshop.left_out {
+                0 => String::new(),
+                n => format!(" ({n} more are on a wishlist, borrowed, or not known to me yet)"),
+            };
+            ui.label(
+                RichText::new(format!(
+                    "Your workshop has {} tools I know{more}.",
+                    np.workshop.tools.len()
+                ))
+                .size(15.0)
+                .color(p.ink),
+            );
+            if ui.add(plain_button(p, "Use my workshop")).clicked() {
+                np.use_workshop_tools();
+            }
+        });
+        ui.add_space(6.0);
+    }
     muted(
         ui,
         p,
@@ -1125,6 +1291,22 @@ fn tools_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
 }
 
 fn materials_step(ui: &mut Ui, np: &mut NewProject, p: &Palette) {
+    if !np.workshop_materials_missing().is_empty() {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                RichText::new(format!(
+                    "Your workshop has {} material lines on hand.",
+                    np.workshop.materials.len()
+                ))
+                .size(15.0)
+                .color(p.ink),
+            );
+            if ui.add(plain_button(p, "Use my workshop")).clicked() {
+                np.use_workshop_materials();
+            }
+        });
+        ui.add_space(6.0);
+    }
     muted(ui, p, "Type them the way you'd say them.");
     ui.horizontal_wrapped(|ui| {
         ui.label(RichText::new("Try:").size(14.0).color(p.muted));
@@ -1468,5 +1650,85 @@ mod tests {
         let n = np.tools.len();
         np.add_kit("basic_household");
         assert_eq!(np.tools.len(), n);
+    }
+
+    /// A library with a jigsaw (owned), a drill (shared), a drill press (wishlist), a tool the
+    /// taxonomy doesn't know, and two material lines of which one is used up.
+    fn sample_library() -> Library {
+        let library = Library::in_memory().unwrap();
+        library.add_tool("jigsaw", "", Access::Owned, None).unwrap();
+        library
+            .add_tool("drill_driver", "", Access::Shared, None)
+            .unwrap();
+        library
+            .add_tool("drill_press", "", Access::Wishlist, None)
+            .unwrap();
+        library
+            .add_tool("flux_capacitor", "", Access::Owned, None)
+            .unwrap();
+        library.add_material("15 pine 2x4s, 3 foot").unwrap();
+        let used_up = library.add_material("half sheet 3/4 ply").unwrap();
+        library.set_on_hand(used_up.id, false).unwrap();
+        library
+    }
+
+    #[test]
+    fn the_workshop_offers_what_the_maker_has_and_counts_what_it_leaves_out() {
+        let workshop = Workshop::read(&sample_library()).unwrap();
+        assert_eq!(workshop.tools, vec!["jigsaw", "drill_driver"]);
+        assert_eq!(
+            workshop.left_out, 2,
+            "the wishlist tool and the unknown one"
+        );
+        assert_eq!(workshop.materials.len(), 1);
+        assert_eq!(workshop.materials[0].text, "15 pine 2x4s, 3 foot");
+    }
+
+    #[test]
+    fn using_the_workshop_adds_only_what_the_project_lacks_and_only_once() {
+        let mut np = NewProject::new(false);
+        np.workshop = Workshop::read(&sample_library()).unwrap();
+        np.tool_text = "a jigsaw".into();
+        np.add_tool_words();
+        assert_eq!(np.workshop_tools_missing(), vec!["drill_driver"]);
+        np.use_workshop_tools();
+        assert_eq!(np.tools.len(), 2);
+        assert!(np.workshop_tools_missing().is_empty());
+        np.use_workshop_tools();
+        assert_eq!(np.tools.len(), 2, "a second press adds nothing");
+        np.use_workshop_materials();
+        np.use_workshop_materials();
+        assert_eq!(np.materials.len(), 1);
+        assert!(np.workshop_materials_missing().is_empty());
+    }
+
+    #[test]
+    fn a_project_teaches_the_workshop_only_what_is_new() {
+        let mut np = NewProject::new(false);
+        np.workshop = Workshop::read(&sample_library()).unwrap();
+        np.use_workshop_tools();
+        np.use_workshop_materials();
+        assert_eq!(np.workshop_news(), (Vec::new(), Vec::new()));
+        np.tool_text = "a band saw".into();
+        np.add_tool_words();
+        np.material_text = "2 yards 500D Cordura".into();
+        np.add_material();
+        let (tools, materials) = np.workshop_news();
+        assert_eq!(tools.len(), 1, "{tools:?}");
+        assert_eq!(materials, vec!["2 yards 500D Cordura".to_string()]);
+    }
+
+    #[test]
+    fn what_a_project_teaches_is_there_the_next_time_the_library_opens() {
+        let dir = std::env::temp_dir().join(format!("makercad-workshop-{}", std::process::id()));
+        let path = dir.join("library.db");
+        // A first run: the folder is made, the workshop is empty.
+        assert_eq!(Workshop::open(&path).unwrap(), Workshop::default());
+        let learned = Workshop::learn(&path, &["jigsaw"], &["15 pine 2x4s, 3 foot".to_string()]);
+        assert_eq!(learned.unwrap(), (1, 1));
+        let next = Workshop::open(&path).unwrap();
+        assert_eq!(next.tools, vec!["jigsaw"]);
+        assert_eq!(next.materials.len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
