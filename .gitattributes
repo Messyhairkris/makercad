@@ -4,3 +4,5 @@
 *.png binary
 *.jpg binary
 *.ico binary
+# Git runs these with sh; a carriage return in them breaks them on a Windows checkout.
+tools/hooks/* text eol=lf

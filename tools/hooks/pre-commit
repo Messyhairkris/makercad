@@ -1,0 +1,10 @@
+#!/bin/sh
+# Personal-data check before a commit (AGENTS.md rule 11). Turn on once per clone:
+#   python tools/personal_scan.py --install
+root=$(git rev-parse --show-toplevel) || exit 0
+py=$(command -v python3 || command -v python || command -v py) || py=
+if [ -z "$py" ]; then
+  echo "personal-data check SKIPPED: Python was not found (CI still checks every push)" >&2
+  exit 0
+fi
+exec "$py" "$root/tools/personal_scan.py" --staged

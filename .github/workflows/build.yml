@@ -71,6 +71,33 @@ jobs:
       - name: Tests
         run: cargo test --workspace --locked
 
+  personal-data:
+    # AGENTS.md rule 11: the repository is public. The same scanner the git hooks and the editor
+    # server use (tools/personal_scan.py). It checks the tree and every commit this push or pull
+    # request adds: messages, author lines and every file version. It cannot know anyone's own
+    # name, so it runs the structural rules (user folders, machine names, emails, keys); the
+    # optional repository secret PERSONAL_TERMS adds words (comma separated) it must never see.
+    name: Personal data (AGENTS.md rule 11)
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Scanner tests
+        shell: pwsh
+        run: |
+          python -m pip install --quiet pytest==8.3.4
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -m pytest -q tools/test_personal_scan.py -p no:cacheprovider
+      - name: The tree, and what this push or pull request adds
+        shell: pwsh
+        env:
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MAKERCAD_PERSONAL_TERMS: ${{ secrets.PERSONAL_TERMS }}
+        run: python tools/personal_scan.py --ci
+
   windows:
     name: makercad.exe (Windows x64)
     runs-on: windows-2025

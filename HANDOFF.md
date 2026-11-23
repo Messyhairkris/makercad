@@ -66,9 +66,13 @@ narrowing "your 41 tools" to the 9 a project needs; the measuring precision (1/6
 Findings panel keeps Sancho's name; whether measuring instruments count as tools and whether to add
 pliers, a wrench and a pencil. Also:
 
-- **The repository is public and carries one Windows user name in its history** (commits `b5243bc` to
-  `72006ff`, in the older test pass: a path to the debug exe). It is fixed going forward; removing it
-  from history means rewriting and force-pushing a public repository, so it is Kris's call.
+- **GitHub still serves the old commits by their hash.** The Windows user name is gone from every
+  branch and test tag (history rewritten on 2026-11-23 with Kris's yes; a fresh clone of what GitHub
+  serves has none in 875 objects, nobody has forked or starred the repository). GitHub keeps commits
+  nothing points at reachable by hash until it cleans up. To remove them for good, Kris asks GitHub
+  Support to remove cached views and run garbage collection on `Messyhairkris/makercad`. Every test
+  build's release notes still name the old short hashes (cosmetic). A backup of the old history sits
+  in the session's scratch folder; it holds the name, so delete it once Kris is content.
 - Deleting the old Crew build caches (`pa-work\cargo-target` and `pa-work\cargo-target-q`, in the home
   folder beside the repos) needs Kris's yes (disk is tight).
 - The ATLAS harness's `crew/agent.py` has a parser bug (it ends a submitted file at the first inner
@@ -96,7 +100,9 @@ pliers, a wrench and a pencil. Also:
 - **The rules** are in `AGENTS.md`: no claim without a command and a number; never crash; brand-free;
   every asset licensed and listed; everything is a command; Crew output never lands directly; gates
   before every commit; look at the UI you change; **the repository is public** (no user names in
-  paths, no emails, no keys: write `C:\Users\<you>`).
+  paths, no emails, no keys: write `C:\Users\<you>`). **In every new clone run
+  `python tools/personal_scan.py --install`**: git then refuses a commit or push that carries personal
+  data (`tools/personal_scan.py`, D35; the cloud build and Claude Code check too).
 - **Build and test** (this PC has 8 GB and a hard disk, so one heavy job at a time):
   - the app: `cargo test -j 1 -p mk-desktop --lib` (about 10 to 15 minutes cold; the shared target is
     `third_party/solidcraft/target`);

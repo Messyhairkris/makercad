@@ -64,6 +64,15 @@ Nothing personal goes in: no user names in paths (write `C:\Users\<you>` or `$en
 no machine or share names, no email addresses, no keys or tokens. Other programs' screenshots stay
 in `reference/` (rule 3).
 
+A scanner enforces it, because remembering did not (D35). Run `python tools/personal_scan.py --install`
+once in each clone: git then refuses a commit, a commit message or a push that carries any of it.
+Claude Code runs the same scanner after every file it writes (`.claude/settings.json`),
+`tools/personal_lsp.py` underlines it in an editor, and the cloud build checks every push. It reads
+your account name, computer name and git email from the machine (never from the repository), and
+`python tools/personal_scan.py --add-term WORD` keeps any other word on this PC only. A finding says
+where, never what. A line that is fine carries the word `personal-ok`. Generated documents are
+included: scan before you commit them.
+
 ## 10. Look at the UI you change
 
 Take a screenshot of the real app (`cargo run -p mk-desktop --bin makercad -- --demo
