@@ -45,7 +45,10 @@
 //! `panel`: The Findings panel's model (doc 07 section 7.4): sort, group, filter and count.
 //!
 //! `golden`: The golden dresser (doc 14 P2): one fixture, a sound build and five seeded faults.
+//!
+//! `design_facts`: The structure pack's facts, measured from boxes (doc 07 section 7.5).
 
+pub mod design_facts;
 pub mod findings;
 pub mod golden;
 pub mod interpret;
