@@ -41,11 +41,14 @@
 //! `voice`: Sancho's Voice layer for the greeting (doc 07 sections 7.2 and 7.9).
 //!
 //! `toolbox`: The side toolbox's contents (doc 05 section 5.4): what is shown, in what order, and why.
+//!
+//! `panel`: The Findings panel's model (doc 07 section 7.4): sort, group, filter and count.
 
 pub mod findings;
 pub mod interpret;
 pub mod memory;
 pub mod observations;
+pub mod panel;
 pub mod rules_core;
 pub mod rules_safety;
 pub mod rules_structure;

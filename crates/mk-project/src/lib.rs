@@ -14,9 +14,12 @@
 //! goal, success criteria, deadline, budget, skill), with their rules and a new project's defaults.
 //!
 //! `stage`: MakerCAD's scale classes stage table (doc 05 section 5.5).
+//!
+//! `intent_card`: The Intent card (doc 05 section 5.2, doc 04 section 4.2): items, what is open, progress.
 
 pub mod atomic;
 pub mod container;
+pub mod intent_card;
 pub mod layout;
 pub mod maker;
 pub mod project;
