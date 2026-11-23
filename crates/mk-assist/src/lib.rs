@@ -43,8 +43,11 @@
 //! `toolbox`: The side toolbox's contents (doc 05 section 5.4): what is shown, in what order, and why.
 //!
 //! `panel`: The Findings panel's model (doc 07 section 7.4): sort, group, filter and count.
+//!
+//! `golden`: The golden dresser (doc 14 P2): one fixture, a sound build and five seeded faults.
 
 pub mod findings;
+pub mod golden;
 pub mod interpret;
 pub mod memory;
 pub mod observations;
