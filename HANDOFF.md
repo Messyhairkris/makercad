@@ -69,8 +69,8 @@ pliers, a wrench and a pencil. Also:
 - **GitHub still serves the old commits by their hash.** The Windows user name is gone from every
   branch and test tag (history rewritten on 2026-11-23 with Kris's yes; a fresh clone of what GitHub
   serves has none in 875 objects, nobody has forked or starred the repository). GitHub keeps commits
-  nothing points at reachable by hash until it cleans up. To remove them for good, Kris asks GitHub
-  Support to remove cached views and run garbage collection on `Messyhairkris/makercad`. Every test
+  nothing points at reachable by hash until it cleans up. Kris decided not to chase that (his name is
+  already public through his portfolio), so there is no support request. Every test
   build's release notes still name the old short hashes (cosmetic). A backup of the old history sits
   in the session's scratch folder; it holds the name, so delete it once Kris is content.
 - Deleting the old Crew build caches (`pa-work\cargo-target` and `pa-work\cargo-target-q`, in the home
